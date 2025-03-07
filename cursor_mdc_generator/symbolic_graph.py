@@ -93,40 +93,130 @@ def resolve_import(import_name, current_file, repo_path):
         potential_paths.append(f"{base_path}.py")
         potential_paths.append(os.path.join(base_path, "__init__.py"))
 
-        # Handle relative imports
+        # Handle imports that might be relative to different project roots
+        # This helps with imports like 'src.schemas.user'
         if current_file:
+            # Get possible project roots by looking at parent directories
+            possible_roots = []
+
+            # Add the current repo_path
+            possible_roots.append(repo_path)
+
+            # Add the directory containing the importing file
+            file_dir = os.path.dirname(current_file)
+            possible_roots.append(file_dir)
+
+            # Add possible project roots by going up the directory tree
+            current_dir = file_dir
+            for _ in range(5):  # Try up to 5 levels up
+                current_dir = os.path.dirname(current_dir)
+                possible_roots.append(current_dir)
+
+                # Check for common project indicators
+                if (
+                    os.path.exists(os.path.join(current_dir, "setup.py"))
+                    or os.path.exists(os.path.join(current_dir, "pyproject.toml"))
+                    or os.path.exists(os.path.join(current_dir, "requirements.txt"))
+                ):
+                    # This might be a project root, prioritize it
+                    possible_roots.insert(0, current_dir)
+
+            # For each possible root, try to resolve the import
+            for root in possible_roots:
+                # Try direct module path
+                module_path = os.path.join(root, import_name.replace(".", "/"))
+                potential_paths.append(f"{module_path}.py")
+                potential_paths.append(os.path.join(module_path, "__init__.py"))
+
+                # Try first part as a top-level package
+                parts = import_name.split(".")
+                if len(parts) > 1:
+                    # Check if the first part exists as a directory
+                    first_part_dir = os.path.join(root, parts[0])
+                    if os.path.isdir(first_part_dir):
+                        # Try the rest of the import path
+                        rest_path = "/".join(parts[1:])
+                        potential_paths.append(
+                            os.path.join(first_part_dir, f"{rest_path}.py")
+                        )
+                        potential_paths.append(
+                            os.path.join(first_part_dir, rest_path, "__init__.py")
+                        )
+
+        # Handle relative imports
+        if current_file and import_name.startswith("."):
             current_dir = os.path.dirname(current_file)
 
             # For each relative level (e.g., .. or ...), go up one directory
-            if import_name.startswith("."):
-                relative_level = 0
-                while import_name.startswith("."):
-                    relative_level += 1
-                    import_name = import_name[1:]
+            relative_level = 0
+            module_name = import_name
+            while module_name.startswith("."):
+                relative_level += 1
+                module_name = module_name[1:]
 
-                # Go up relative_level directories from current_dir
-                relative_dir = current_dir
-                for _ in range(relative_level):
-                    relative_dir = os.path.dirname(relative_dir)
+            # Go up relative_level directories from current_dir
+            relative_dir = current_dir
+            for _ in range(relative_level):
+                relative_dir = os.path.dirname(relative_dir)
 
-                if import_name:  # If there's a module specified after the dots
-                    rel_path = os.path.join(relative_dir, import_name.replace(".", "/"))
-                    potential_paths.append(f"{rel_path}.py")
-                    potential_paths.append(os.path.join(rel_path, "__init__.py"))
-                else:  # If import is just dots (like 'from .. import x')
-                    potential_paths.append(f"{relative_dir}.py")
-                    potential_paths.append(os.path.join(relative_dir, "__init__.py"))
+            if module_name:  # If there's a module specified after the dots
+                rel_path = os.path.join(relative_dir, module_name.replace(".", "/"))
+                potential_paths.append(f"{rel_path}.py")
+                potential_paths.append(os.path.join(rel_path, "__init__.py"))
+            else:  # If import is just dots (like 'from .. import x')
+                potential_paths.append(f"{relative_dir}.py")
+                potential_paths.append(os.path.join(relative_dir, "__init__.py"))
 
-        # Try to find the file in potential locations
+        # Try to find the file in potential locations (remove duplicates)
+        checked_paths = set()
         for path in potential_paths:
-            if os.path.isfile(path):
-                return path
+            if path in checked_paths:
+                continue
+            checked_paths.add(path)
+
+            # Normalize path for comparison
+            norm_path = os.path.normpath(path)
+            if os.path.isfile(norm_path):
+                return norm_path
 
         # If we get here, we haven't found a specific Python file
-        # Try returning the path without .py for further checks
+        # Try checking for directories
+        for path in potential_paths:
+            dir_path = path.replace(".py", "")
+            if os.path.isdir(dir_path) and os.path.exists(
+                os.path.join(dir_path, "__init__.py")
+            ):
+                return os.path.join(dir_path, "__init__.py")
+
+        # Check if the import is a namespace package without __init__.py
         base_path = os.path.join(repo_path, import_name.replace(".", "/"))
         if os.path.isdir(base_path):
-            return base_path
+            # Look for any Python files in this directory
+            for file in os.listdir(base_path):
+                if file.endswith(".py"):
+                    return base_path
+
+        # For absolute imports like 'src.schemas.user', try to find the module at the repo root
+        # This handles projects with non-standard layouts
+        if "." in import_name:
+            # Split the import into parts
+            parts = import_name.split(".")
+
+            # Try different combinations of the parts as project roots
+            for i in range(1, len(parts)):
+                # Try using first i parts as the project structure
+                base_dir = os.path.join(repo_path, *parts[:i])
+                if os.path.isdir(base_dir):
+                    # Try resolving the rest of the import from this directory
+                    remaining = parts[i:]
+                    if remaining:
+                        submodule_path = os.path.join(base_dir, *remaining)
+                        if os.path.isfile(f"{submodule_path}.py"):
+                            return f"{submodule_path}.py"
+                        if os.path.isdir(submodule_path) and os.path.isfile(
+                            os.path.join(submodule_path, "__init__.py")
+                        ):
+                            return os.path.join(submodule_path, "__init__.py")
 
         # If not found in repo, log and try Python's import system
         logging.debug(f"Could not resolve import: {import_name} from {current_file}")
@@ -464,9 +554,6 @@ def analyze_imports_and_usage(file_path, repo_path, G):
         except UnicodeDecodeError:
             with open(file_path, "r", encoding="latin-1") as f:
                 content = f.read()
-
-        # Use absolute path consistently instead of relative path
-        relative_path = os.path.relpath(file_path, repo_path)
 
         # Add node for this file if it doesn't exist
         if file_path not in G.nodes():
