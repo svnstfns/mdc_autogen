@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 import logging
 from networkx.drawing.nx_agraph import graphviz_layout
 
-from repository_structure import get_repo_files, generate_directory_structure
-from symbolic_graph import analyze_imports_and_usage
-from code_summarization import read_file_content, split_content, generate_mdc_files
+from .repository_structure import get_repo_files, generate_directory_structure
+from .symbolic_graph import analyze_imports_and_usage
+from .code_summarization import read_file_content, split_content, generate_mdc_files
 
 
 def visualize_dependency_graph(G, output_path):

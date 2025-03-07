@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cursor-mdc-generator"
+version = "0.1.0"
+description = "A tool to generate Cursor IDE MDC files from repository analysis"
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT" }
+authors = [
+    { name = "Cursor MDC Generator" }
+]
+dependencies = [
+    "matplotlib",
+    "networkx",
+    "gitpython",
+    "pygraphviz",
+    "pydantic",
+    "astroid",
+    "openai",
+    "instructor",
+    "click",
+]
+
+[project.scripts]
+cursor-mdc = "cursor_mdc_generator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cursor_mdc_generator*"]
+
+[tool.setuptools.package-data]
+cursor_mdc_generator = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ["py37"] 
