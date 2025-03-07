@@ -58,6 +58,10 @@ def analyze(repo_url, local_path, output_dir, oauth_token, model_name, log_level
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     
+    if not os.environ.get("OPENAI_API_KEY"):
+        click.echo("Error: OPENAI_API_KEY environment variable not set. Required for code summarization.")
+        return
+    
     if not repo_url and not local_path:
         click.echo("Error: Either --repo-url or --local-path must be specified.")
         return
@@ -72,7 +76,6 @@ def analyze(repo_url, local_path, output_dir, oauth_token, model_name, log_level
             model_name=model_name,
         )
     )
-    
     click.echo("Analysis complete. Results saved to {}".format(os.path.abspath(output_dir)))
 
 
