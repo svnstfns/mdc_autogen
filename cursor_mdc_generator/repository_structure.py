@@ -15,12 +15,14 @@ def get_ignore_patterns(local_path):
     # Read .gitignore file
     gitignore_path = os.path.join(local_path, ".gitignore")
     ignore_patterns = []
-    
+
     if os.path.exists(gitignore_path):
         with open(gitignore_path, "r") as f:
-            ignore_patterns = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+            ignore_patterns = [
+                line.strip() for line in f if line.strip() and not line.startswith("#")
+            ]
         logging.info(f"Found .gitignore file with {len(ignore_patterns)} patterns")
-    
+
     # Common patterns to ignore - these are directly compiled as regex patterns
     common_ignores = [
         r".*\.git$",  # Match the .git directory itself
@@ -85,18 +87,18 @@ def get_ignore_patterns(local_path):
         r".*README$",
         r".*README/.*",
     ]
-    
+
     # Compile gitignore patterns using fnmatch.translate and common patterns directly
     compiled_ignore_patterns = []
-    
+
     # Process gitignore patterns (use glob_to_regex)
     for pattern in ignore_patterns:
         compiled_ignore_patterns.append(glob_to_regex(pattern))
-    
+
     # Process common patterns (direct regex compilation)
     for pattern in common_ignores:
         compiled_ignore_patterns.append(re.compile(pattern))
-    
+
     return compiled_ignore_patterns
 
 
@@ -116,24 +118,26 @@ def should_ignore(file_path, compiled_ignore_patterns):
 def get_repo_files(repo_url=None, local_path=None, oauth_token=None):
     """
     Get a list of relevant files from a repository.
-    
+
     Args:
         repo_url: GitHub repository URL (optional if local_path is a valid repo)
         local_path: Local path to repository
         oauth_token: OAuth token for private repositories
-        
+
     Returns:
         List of relevant files
     """
     # Check if we need to clone the repository
     if repo_url and not os.path.exists(local_path):
         logging.info(f"Cloning repository: {repo_url}")
-        
+
         # Handle OAuth token for private repositories
         if oauth_token:
             # Format the URL with the token for authentication
             if repo_url.startswith("https://"):
-                auth_url = repo_url.replace("https://", f"https://{oauth_token}:x-oauth-basic@")
+                auth_url = repo_url.replace(
+                    "https://", f"https://{oauth_token}:x-oauth-basic@"
+                )
                 Repo.clone_from(auth_url, local_path)
             else:
                 logging.error("OAuth token provided but repository URL is not HTTPS")
@@ -154,7 +158,11 @@ def get_repo_files(repo_url=None, local_path=None, oauth_token=None):
     relevant_files = []
     for root, dirs, files in os.walk(local_path):
         # Filter out directories that match ignore patterns
-        dirs[:] = [d for d in dirs if not should_ignore(os.path.join(root, d), compiled_ignore_patterns)]
+        dirs[:] = [
+            d
+            for d in dirs
+            if not should_ignore(os.path.join(root, d), compiled_ignore_patterns)
+        ]
 
         for file in files:
             file_path = os.path.join(root, file)
@@ -168,7 +176,7 @@ def get_repo_files(repo_url=None, local_path=None, oauth_token=None):
 def generate_directory_structure(repo_path):
     """Generate a visual representation of the repository directory structure."""
     result = []
-    
+
     # Get ignore patterns
     compiled_ignore_patterns = get_ignore_patterns(repo_path)
 
@@ -186,8 +194,26 @@ def generate_directory_structure(repo_path):
 
         # List directories first, then files
         items = os.listdir(path)
-        dirs = sorted([item for item in items if os.path.isdir(os.path.join(path, item)) and not should_ignore(os.path.join(path, item), compiled_ignore_patterns)])
-        files = sorted([item for item in items if os.path.isfile(os.path.join(path, item)) and not should_ignore(os.path.join(path, item), compiled_ignore_patterns)])
+        dirs = sorted(
+            [
+                item
+                for item in items
+                if os.path.isdir(os.path.join(path, item))
+                and not should_ignore(
+                    os.path.join(path, item), compiled_ignore_patterns
+                )
+            ]
+        )
+        files = sorted(
+            [
+                item
+                for item in items
+                if os.path.isfile(os.path.join(path, item))
+                and not should_ignore(
+                    os.path.join(path, item), compiled_ignore_patterns
+                )
+            ]
+        )
 
         # Process directories
         for i, d in enumerate(dirs):

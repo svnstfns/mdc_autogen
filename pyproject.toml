@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mdcgen"
-version = "0.1.0"
+version = "0.1.2"
 description = "A tool to generate Cursor IDE MDC files from repository analysis"
 readme = "README.md"
 requires-python = ">=3.7"
@@ -16,12 +16,14 @@ dependencies = [
     "matplotlib",
     "networkx",
     "gitpython",
-    "pygraphviz",
     "pydantic",
     "astroid",
     "click",
     "litellm"
 ]
+
+[project.optional-dependencies]
+visualization = ["pygraphviz"]
 
 [project.scripts]
 mdcgen = "cursor_mdc_generator.cli:main"

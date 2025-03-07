@@ -17,72 +17,111 @@ def cli():
 
 @cli.command()
 @click.option(
-    "--repo-url",
+    "--repo",
     "-r",
     help="URL of the repository to analyze.",
 )
 @click.option(
-    "--local-path",
+    "--local",
     "-l",
     help="Local path to the repository.",
 )
 @click.option(
-    "--output-dir",
+    "--out",
     "-o",
     default="output",
     help="Directory to output the analysis results.",
 )
 @click.option(
-    "--oauth-token",
+    "--token",
+    "-t",
     help="OAuth token for private repositories.",
 )
 @click.option(
-    "--model-name",
+    "--model",
+    "-m",
     default="gpt-4o-mini",
     help="OpenAI model to use for generating summaries.",
 )
 @click.option(
     "--log-level",
     default="INFO",
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False),
+    type=click.Choice(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False
+    ),
     help="Set the logging level.",
 )
 @click.option(
-    "--include-import-rules",
+    "--imports",
+    "-i",
     is_flag=True,
-    help="Include @file references to imported files in MDC content.",
+    help="Include @file references to imported files.",
 )
-def analyze(repo_url, local_path, output_dir, oauth_token, model_name, log_level, include_import_rules):
+@click.option(
+    "--no-viz",
+    is_flag=True,
+    help="Skip generating dependency graph visualizations.",
+)
+@click.option(
+    "--no-dirs",
+    is_flag=True,
+    help="Skip generating directory-level MDC files.",
+)
+@click.option(
+    "--no-repo",
+    is_flag=True,
+    help="Skip generating repository-level MDC file.",
+)
+@click.option(
+    "--depth",
+    "-d",
+    type=int,
+    default=2,
+    help="Max directory depth (0=repo only, 1=top-level dirs).",
+)
+def analyze(
+    repo, local, out, token, model, log_level, imports, no_viz, no_dirs, no_repo, depth
+):
     """Analyze a repository and generate MDC files.
-    
-    You must specify either --repo-url or --local-path.
+
+    You must specify either --repo or --local.
     """
     # Set up logging
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-    
-    if not os.environ.get("OPENAI_API_KEY"):
-        click.echo("Error: OPENAI_API_KEY environment variable not set. Required for code summarization.")
+
+    if (
+        not os.environ.get("OPENAI_API_KEY")
+        and not os.environ.get("ANTHROPIC_API_KEY")
+        and not os.environ.get("GEMINI_API_KEY")
+    ):
+        click.echo(
+            "Error: LLM key environment variable not set. Required for code summarization. Ideally use OpenAI, Anthropic or Gemini (via LiteLLM)"
+        )
         return
-    
-    if not repo_url and not local_path:
-        click.echo("Error: Either --repo-url or --local-path must be specified.")
+
+    if not repo and not local:
+        click.echo("Error: Either --repo or --local must be specified.")
         return
-    
+
     # Run the analysis
     asyncio.run(
         analyze_repository(
-            repo_url=repo_url,
-            local_path=local_path,
-            output_dir=output_dir,
-            oauth_token=oauth_token,
-            model_name=model_name,
-            include_import_rules=include_import_rules
+            repo_url=repo,
+            local_path=local,
+            output_dir=out,
+            oauth_token=token,
+            model_name=model,
+            include_import_rules=imports,
+            skip_visualization=no_viz,
+            skip_directory_mdcs=no_dirs,
+            skip_repository_mdc=no_repo,
+            max_directory_depth=depth,
         )
     )
-    click.echo("Analysis complete. Results saved to {}".format(os.path.abspath(output_dir)))
+    click.echo("Analysis complete. Results saved to {}".format(os.path.abspath(out)))
 
 
 def main():
@@ -91,4 +130,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
