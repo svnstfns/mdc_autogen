@@ -79,7 +79,11 @@ def get_ignore_patterns(local_path):
         r".*\.env/.*",
         r".*\.env.local$",  # Match the .env.local file itself
         r".*\.env.local/.*",
-        
+        # Ignore License and Readme files
+        r".*LICENSE$",
+        r".*LICENSE/.*",
+        r".*README$",
+        r".*README/.*",
     ]
     
     # Compile gitignore patterns using fnmatch.translate and common patterns directly
@@ -169,8 +173,6 @@ def generate_directory_structure(repo_path):
     compiled_ignore_patterns = get_ignore_patterns(repo_path)
 
     def _list_directory(path, prefix="", is_last=False):
-        rel_path = os.path.relpath(path, repo_path)
-
         # Skip paths that should be ignored
         if should_ignore(path, compiled_ignore_patterns):
             return

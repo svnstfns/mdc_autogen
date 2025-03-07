@@ -7,79 +7,213 @@ import traceback
 import networkx as nx
 import matplotlib.pyplot as plt
 import logging
-from networkx.drawing.nx_agraph import graphviz_layout
+
 
 from .repository_structure import get_repo_files, generate_directory_structure
-from .symbolic_graph import analyze_imports_and_usage
+from .symbolic_graph import analyze_imports_and_usage, convert_to_relative_paths
 from .code_summarization import read_file_content, split_content, generate_mdc_files
+from .visualize_dependency_graph import visualize_dependency_graph
 
 
-def visualize_dependency_graph(G, output_path):
-    """Create a visual representation of the dependency graph."""
-    try:
-        # Create two visualizations: one with spring layout and one hierarchical (if possible)
-        # 1. Spring layout (force-directed) - good for general visualization
-        plt.figure(figsize=(12, 8))
+def generate_report(G, output_dir, repo_url=None, local_path=None, structure=None):
+    with open(os.path.join(output_dir, "repo_analysis_report.md"), 'w') as f:
+        # Write header
+        f.write("# Repository Analysis Report\n\n")
         
-        # Use spring layout for graph visualization
-        pos = nx.spring_layout(G, k=0.3, iterations=50)
+        # Include repo info
+        if repo_url:
+            f.write("## Repository: %s\n\n" % repo_url)
+        else:
+            f.write("## Local Repository: %s\n\n" % os.path.abspath(local_path))
         
-        # Draw nodes
-        nx.draw_networkx_nodes(G, pos, node_size=300, node_color='skyblue', alpha=0.8)
+        # Include directory structure
+        f.write("## Directory Structure\n\n")
+        f.write("```\n")
+        f.write(structure)
+        f.write("\n```\n\n")
         
-        # Draw edges
-        nx.draw_networkx_edges(G, pos, width=0.7, alpha=0.6, arrows=True, arrowsize=10)
+        # Include graph summary
+        f.write("## Code Dependency Graph\n\n")
+        f.write("- Total files analyzed: %d\n" % len(G.nodes()))
+        f.write("- Total relationships: %d\n\n" % len(G.edges()))
         
-        # Draw labels with smaller font size and without full paths for readability
-        labels = {node: os.path.basename(node) for node in G.nodes()}
-        nx.draw_networkx_labels(G, pos, labels=labels, font_size=7)
-        
-        plt.title("Repository Dependency Graph (Force-Directed Layout)")
-        plt.axis('off')
-        plt.tight_layout()
-        
-        # Save the spring layout figure
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        # 2. Try to create a hierarchical layout if the graph is a DAG
-        try:
-            # Check if the graph is a DAG (no cycles)
-            if nx.is_directed_acyclic_graph(G) and len(G.nodes()) > 1:
-                plt.figure(figsize=(12, 10))
-                
-                # Use hierarchical layout
-                pos = graphviz_layout(G, prog='dot')
+        # Add reference to the visualization
+        f.write("### Dependency Graph Visualization\n\n")
+        f.write("#### Force-Directed Layout\n")
+        f.write("![Repository Dependency Graph](./dependency_graph.png)\n\n")
 
-                # Draw nodes
-                nx.draw_networkx_nodes(G, pos, node_size=300, node_color='lightgreen', alpha=0.8)
-                
-                # Draw edges
-                nx.draw_networkx_edges(G, pos, width=0.7, alpha=0.6, arrows=True, arrowsize=10)
-                
-                # Draw labels
-                nx.draw_networkx_labels(G, pos, labels=labels, font_size=7)
-                
-                plt.title("Repository Dependency Graph (Hierarchical Layout)")
-                plt.axis('off')
-                plt.tight_layout()
-                
-                # Save the hierarchical layout figure
-                hierarchical_path = os.path.splitext(output_path)[0] + "_hierarchical.png"
-                plt.savefig(hierarchical_path, dpi=300, bbox_inches='tight')
-                plt.close()
-                
-                logging.info("Hierarchical dependency graph saved to %s" % hierarchical_path)
-        except Exception as e:
-            logging.warning("Could not create hierarchical layout: %s" % e)
+        # Add more detailed graph analysis for LLM understanding
+        f.write("### Most Important Files\n\n")
         
-        logging.info("Dependency graph visualization saved to %s" % output_path)
-    except Exception as e:
-        logging.error("Error creating graph visualization: %s" % e)
-        traceback.print_exc()
+        # Find most imported files (most depended-upon files)
+        if G.nodes():
+            # Calculate in-degree (number of files importing this file)
+            in_degree = sorted([(n, G.in_degree(n)) for n in G.nodes()], key=lambda x: x[1], reverse=True)
+            f.write("#### Most Imported Files\n\n")
+            for node, degree in in_degree[:10]:  # Show top 10
+                if degree > 0:
+                    f.write("- **%s**: Imported by %d files\n" % (node, degree))
+            f.write("\n")
+            
+            # Calculate out-degree (number of imports from this file)
+            out_degree = sorted([(n, G.out_degree(n)) for n in G.nodes()], key=lambda x: x[1], reverse=True)
+            f.write("#### Files With Most Dependencies\n\n")
+            for node, degree in out_degree[:10]:  # Show top 10
+                if degree > 0:
+                    f.write("- **%s**: Imports %d files\n" % (node, degree))
+            f.write("\n")
+            
+            # Identify potential core modules (high in-degree)
+            core_threshold = 3  # Files imported by at least 3 other files
+            core_modules = [n for n, d in in_degree if d >= core_threshold]
+            if core_modules:
+                f.write("#### Potential Core Modules\n\n")
+                f.write("These files are imported by multiple other files and may represent core functionality:\n\n")
+                for module in core_modules:
+                    f.write("- **%s**: Imported by %d files\n" % (module, G.in_degree(module)))
+            f.write("\n")
+            
+            # Try to identify entry points (files with imports but not imported by others)
+            entry_points = [n for n in G.nodes() if G.out_degree(n) > 0 and G.in_degree(n) == 0]
+            if entry_points:
+                f.write("#### Potential Entry Points\n\n")
+                f.write("These files import other modules but are not imported themselves, suggesting they may be entry points:\n\n")
+                for entry in entry_points:
+                    f.write("- **%s**: Imports %d files\n" % (entry, G.out_degree(entry)))
+            f.write("\n")
+            
+            # Identify circular dependencies (potential code smell)
+            try:
+                cycles = list(nx.simple_cycles(G))
+                if cycles:
+                    f.write("#### Circular Dependencies ⚠️\n\n")
+                    f.write("The following circular dependencies were detected (these may cause issues):\n\n")
+                    for i, cycle in enumerate(cycles[:10]):  # Show at most 10 cycles
+                        cycle_str = " → ".join(cycle)
+                        f.write("%d. Cycle: %s → %s\n" % (i+1, cycle_str, cycle[0]))
+                    
+                    if len(cycles) > 10:
+                        f.write("\n...and %d more circular dependencies.\n" % (len(cycles) - 10))
+                    f.write("\n")
+            except Exception as e:
+                logging.error("Error detecting cycles: %s" % e)
+            
+            # NEW SECTION: Add granular analysis of imported components
+            f.write("### Most Shared Functions, Classes, and Variables\n\n")
+            f.write("This section shows individual components (functions, classes, variables) that are imported across multiple files.\n\n")
+            
+            # Create a dictionary to track the usage frequency of each component
+            component_usage = {}
+            
+            # Iterate through edges to identify imported items
+            for u, v, data in G.edges(data=True):
+                imported_items = data.get("imported_items", [])
+                for item in imported_items:
+                    name = item.get("name")
+                    item_type = item.get("type", "unknown")
+                    if name:
+                        key = (name, item_type)
+                        if key not in component_usage:
+                            component_usage[key] = {
+                                "count": 0,
+                                "source_files": set(),
+                                "importing_files": set()
+                            }
+                        component_usage[key]["count"] += 1
+                        component_usage[key]["source_files"].add(v)  # v is the source of the component
+                        component_usage[key]["importing_files"].add(u)  # u is the importing file
+            
+            # Sort components by usage frequency
+            sorted_components = sorted(
+                component_usage.items(), 
+                key=lambda x: (x[1]["count"], len(x[1]["importing_files"])), 
+                reverse=True
+            )
+            
+            # Display functions
+            f.write("#### Most Imported Functions\n\n")
+            functions_shown = 0
+            for (name, item_type), usage_data in sorted_components:
+                if item_type == "function" and functions_shown < 10:
+                    source_files = ", ".join(sorted(usage_data["source_files"]))
+                    f.write("- **%s**: Imported %d times from %s\n" % (
+                        name, 
+                        usage_data["count"], 
+                        source_files
+                    ))
+                    functions_shown += 1
+            if functions_shown == 0:
+                f.write("No functions are imported across files.\n")
+            f.write("\n")
+            
+            # Display classes
+            f.write("#### Most Imported Classes\n\n")
+            classes_shown = 0
+            for (name, item_type), usage_data in sorted_components:
+                if item_type == "class" and classes_shown < 10:
+                    source_files = ", ".join(sorted(usage_data["source_files"]))
+                    f.write("- **%s**: Imported %d times from %s\n" % (
+                        name, 
+                        usage_data["count"], 
+                        source_files
+                    ))
+                    classes_shown += 1
+            if classes_shown == 0:
+                f.write("No classes are imported across files.\n")
+            f.write("\n")
+            
+            # Display variables/constants
+            f.write("#### Most Imported Variables and Constants\n\n")
+            vars_shown = 0
+            for (name, item_type), usage_data in sorted_components:
+                if item_type in ["variable", "constant"] and vars_shown < 10:
+                    source_files = ", ".join(sorted(usage_data["source_files"]))
+                    f.write("- **%s**: Imported %d times from %s\n" % (
+                        name, 
+                        usage_data["count"], 
+                        source_files
+                    ))
+                    vars_shown += 1
+            if vars_shown == 0:
+                f.write("No variables or constants are imported across files.\n")
+            f.write("\n")
+            
+            # Show cross-file component usage patterns
+            heavily_used = [k for k, v in component_usage.items() if len(v["importing_files"]) >= 3]
+            if heavily_used:
+                f.write("#### Components Used Across Multiple Files\n\n")
+                f.write("These components are imported by 3 or more different files and may represent core shared functionality:\n\n")
+                
+                for (name, item_type) in heavily_used[:15]:  # Show top 15
+                    usage = component_usage[(name, item_type)]
+                    file_count = len(usage["importing_files"])
+                    imported_by = ", ".join(sorted(usage["importing_files"]))
+                    
+                    f.write("- **%s** (%s): Used in %d files - %s\n" % (
+                        name,
+                        item_type,
+                        file_count,
+                        imported_by
+                    ))
+                
+                if len(heavily_used) > 15:
+                    f.write("\n...and %d more heavily used components.\n" % (len(heavily_used) - 15))
+                f.write("\n")
+        
+        f.write("See repo_graph.graphml and repo_graph.json for detailed graph data.\n\n")
+        
+        # Add reference to MDC files
+        f.write("## MDC Documentation Files\n\n")
+        f.write("Cursor-compatible MDC documentation files have been generated in the `.cursor/rules` directory. These files provide context-aware documentation for:\n\n")
+        f.write("- Individual files\n")
+        f.write("- Directories\n")
+        f.write("- The entire repository\n\n")
+        f.write("These files include dependency information and are designed to provide contextual help within the Cursor IDE.\n\n")
+        
+        logging.info("Analysis report saved to repo_analysis_report.md")
+        
 
-
-async def analyze_repository(repo_url=None, local_path=None, output_dir="output", oauth_token=None):
+async def analyze_repository(repo_url=None, local_path=None, output_dir="output", oauth_token=None, include_import_rules=False):
     """
     Analyze a repository and generate structure, graph, and summaries.
     
@@ -123,8 +257,49 @@ async def analyze_repository(repo_url=None, local_path=None, output_dir="output"
         for file_path in relevant_files:
             full_path = os.path.join(local_path, file_path)
             analyze_imports_and_usage(full_path, local_path, G)
-
-        # Step 4: Split files and prepare for MDC generation
+        
+        # Convert absolute paths to relative paths for the final graph
+        logging.info("Converting absolute paths to relative paths...")
+        G_rel = convert_to_relative_paths(G, local_path)
+        
+        # Save dependency graph
+        logging.info("Saving dependency graph...")
+        nx.write_gexf(G_rel, os.path.join(output_dir, "dependency_graph.gexf"))
+        
+        # Step 4: Save the graph data
+        logging.info("Saving dependency graph data...")
+        graph_data = {
+            "nodes": [],
+            "edges": []
+        }
+        
+        # Add node data
+        for node in G_rel.nodes():
+            node_data = {
+                "id": node,
+                "type": G_rel.nodes[node].get("type", "unknown")
+            }
+            graph_data["nodes"].append(node_data)
+        
+        # Add edge data
+        for u, v, data in G_rel.edges(data=True):
+            edge_data = {
+                "source": u,
+                "target": v,
+                "type": data.get("type", "unknown"),
+                "imported_items": data.get("imported_items", [])
+            }
+            graph_data["edges"].append(edge_data)
+        
+        # Save graph data as JSON
+        with open(os.path.join(output_dir, "repo_graph.json"), 'w') as f:
+            json.dump(graph_data, f, indent=2)
+        
+        # Step 5: Generate visualization
+        logging.info("Generating dependency graph visualization...")
+        visualize_dependency_graph(G_rel, os.path.join(output_dir, "dependency_graph.png"))
+        
+        # Step 6: Split files and prepare for MDC generation
         logging.info("Splitting files into functions and classes...")
         file_data = {}
         for file_path in relevant_files:
@@ -138,137 +313,16 @@ async def analyze_repository(repo_url=None, local_path=None, output_dir="output"
             except Exception as e:
                 logging.error("Error processing file: %s. Error: %s" % (file_path, e))
 
-        # Save the graph data
-        logging.info("Saving dependency graph data...")
-        try:
-            # Save in GraphML format (readable by tools like Gephi)
-            nx.write_graphml(G, os.path.join(output_dir, "repo_graph.graphml"))
-            
-            # For JSON format, convert to a serializable format
-            graph_data = {
-                "nodes": [{"id": n, "type": G.nodes[n].get("type", "unknown")} for n in G.nodes()],
-                "edges": [{"source": u, "target": v, "type": G.edges[u, v].get("type", "unknown")} 
-                          for u, v in G.edges()]
-            }
-            with open(os.path.join(output_dir, "repo_graph.json"), 'w') as f:
-                json.dump(graph_data, f, indent=2)
-                
-            # Generate visual representation of the graph
-            visualize_dependency_graph(G, os.path.join(output_dir, "repo_graph.png"))
-                
-            logging.info("Dependency graph saved with %d nodes and %d edges" % (len(G.nodes()), len(G.edges())))
-        except Exception as e:
-            logging.error("Error saving dependency graph: %s" % e)
-        
-        # Step 5: Generate MDC files with dependency information
+        # Step 7: Generate MDC files with dependency information
         logging.info("Generating MDC documentation files...")
-        mdc_output_dir = os.path.join(output_dir, ".cursor/rules")
-        mdc_files = await generate_mdc_files(file_data, G, mdc_output_dir)
-        logging.info("Generated %d MDC documentation files" % len(mdc_files))
-        
-        # Create a combined report
+        mdc_output_dir = os.path.join(local_path, ".cursor/rules")
+        os.makedirs(mdc_output_dir, exist_ok=True)
+        mdc_files = await generate_mdc_files(file_data, G_rel, mdc_output_dir, include_import_rules=include_import_rules)
+        logging.info("Generated %d MDC documentation files in %s" % (len(mdc_files), mdc_output_dir))
+
+        # Step 8: Generate a report
         logging.info("Creating combined analysis report...")
-        with open(os.path.join(output_dir, "repo_analysis_report.md"), 'w') as f:
-            # Write header
-            f.write("# Repository Analysis Report\n\n")
-            
-            # Include repo info
-            if repo_url:
-                f.write("## Repository: %s\n\n" % repo_url)
-            else:
-                f.write("## Local Repository: %s\n\n" % os.path.abspath(local_path))
-            
-            # Include directory structure
-            f.write("## Directory Structure\n\n")
-            f.write("```\n")
-            f.write(structure)
-            f.write("\n```\n\n")
-            
-            # Include graph summary
-            f.write("## Code Dependency Graph\n\n")
-            f.write("- Total files analyzed: %d\n" % len(G.nodes()))
-            f.write("- Total relationships: %d\n\n" % len(G.edges()))
-            
-            # Add reference to the visualization
-            f.write("### Dependency Graph Visualization\n\n")
-            f.write("#### Force-Directed Layout\n")
-            f.write("![Repository Dependency Graph](./repo_graph.png)\n\n")
-            
-            # Add reference to hierarchical layout if it exists
-            hierarchical_path = os.path.join(output_dir, "repo_graph_hierarchical.png")
-            if os.path.exists(hierarchical_path):
-                f.write("#### Hierarchical Layout\n")
-                f.write("This layout shows the dependency direction more clearly, with upstream dependencies at the top and downstream dependencies at the bottom.\n\n")
-                f.write("![Repository Hierarchical Dependency Graph](./repo_graph_hierarchical.png)\n\n")
-            
-            # Add more detailed graph analysis for LLM understanding
-            f.write("### Most Important Files\n\n")
-            
-            # Find most imported files (most depended-upon files)
-            if G.nodes():
-                # Calculate in-degree (number of files importing this file)
-                in_degree = sorted([(n, G.in_degree(n)) for n in G.nodes()], key=lambda x: x[1], reverse=True)
-                f.write("#### Most Imported Files\n\n")
-                for node, degree in in_degree[:10]:  # Show top 10
-                    if degree > 0:
-                        f.write("- **%s**: Imported by %d files\n" % (node, degree))
-                f.write("\n")
-                
-                # Calculate out-degree (number of imports from this file)
-                out_degree = sorted([(n, G.out_degree(n)) for n in G.nodes()], key=lambda x: x[1], reverse=True)
-                f.write("#### Files With Most Dependencies\n\n")
-                for node, degree in out_degree[:10]:  # Show top 10
-                    if degree > 0:
-                        f.write("- **%s**: Imports %d files\n" % (node, degree))
-                f.write("\n")
-                
-                # Identify potential core modules (high in-degree)
-                core_threshold = 3  # Files imported by at least 3 other files
-                core_modules = [n for n, d in in_degree if d >= core_threshold]
-                if core_modules:
-                    f.write("#### Potential Core Modules\n\n")
-                    f.write("These files are imported by multiple other files and may represent core functionality:\n\n")
-                    for module in core_modules:
-                        f.write("- **%s**: Imported by %d files\n" % (module, G.in_degree(module)))
-                f.write("\n")
-                
-                # Try to identify entry points (files with imports but not imported by others)
-                entry_points = [n for n in G.nodes() if G.out_degree(n) > 0 and G.in_degree(n) == 0]
-                if entry_points:
-                    f.write("#### Potential Entry Points\n\n")
-                    f.write("These files import other modules but are not imported themselves, suggesting they may be entry points:\n\n")
-                    for entry in entry_points:
-                        f.write("- **%s**: Imports %d files\n" % (entry, G.out_degree(entry)))
-                f.write("\n")
-                
-                # Identify circular dependencies (potential code smell)
-                try:
-                    cycles = list(nx.simple_cycles(G))
-                    if cycles:
-                        f.write("#### Circular Dependencies ⚠️\n\n")
-                        f.write("The following circular dependencies were detected (these may cause issues):\n\n")
-                        for i, cycle in enumerate(cycles[:10]):  # Show at most 10 cycles
-                            cycle_str = " → ".join(cycle)
-                            f.write("%d. Cycle: %s → %s\n" % (i+1, cycle_str, cycle[0]))
-                        
-                        if len(cycles) > 10:
-                            f.write("\n...and %d more circular dependencies.\n" % (len(cycles) - 10))
-                        f.write("\n")
-                except Exception as e:
-                    logging.error("Error detecting cycles: %s" % e)
-            
-            f.write("See repo_graph.graphml and repo_graph.json for detailed graph data.\n\n")
-            
-            # Add reference to MDC files
-            f.write("## MDC Documentation Files\n\n")
-            f.write("Cursor-compatible MDC documentation files have been generated in the `.cursor/rules` directory. These files provide context-aware documentation for:\n\n")
-            f.write("- Individual files\n")
-            f.write("- Directories\n")
-            f.write("- The entire repository\n\n")
-            f.write("These files include dependency information and are designed to provide contextual help within the Cursor IDE.\n\n")
-            
-            logging.info("Analysis report saved to repo_analysis_report.md")
-        
+        generate_report(G_rel, output_dir, repo_url, local_path, structure)
         return os.path.abspath(output_dir)
         
     except Exception as e:
@@ -287,9 +341,10 @@ def main():
     parser = argparse.ArgumentParser(description="Analyze a repository with support for Python, JavaScript, and TypeScript")
     parser.add_argument("--repo_url", help="GitHub repository URL (optional if --local_path is provided)")
     parser.add_argument("--local_path", help="Local path to repository (optional if --repo_url is provided)")
-    parser.add_argument("--output_dir", default="output", help="Output directory for analysis files")
+    parser.add_argument("--output_dir", default="mdc_output", help="Output directory for analysis files")
     parser.add_argument("--model", default="gpt-4o-mini", help="OpenAI model to use for summaries")
     parser.add_argument("--oauth_token", help="OAuth token for private repositories")
+    parser.add_argument("--include_import_rules", action="store_true", help="Include @file references to imported files in MDC content")
     args = parser.parse_args()
     
     # Validate arguments
@@ -307,7 +362,8 @@ def main():
         repo_url=args.repo_url,
         local_path=args.local_path,
         output_dir=args.output_dir,
-        oauth_token=args.oauth_token
+        oauth_token=args.oauth_token,
+        include_import_rules=args.include_import_rules
     ))
     
     if output_path:

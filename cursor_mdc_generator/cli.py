@@ -47,7 +47,12 @@ def cli():
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False),
     help="Set the logging level.",
 )
-def analyze(repo_url, local_path, output_dir, oauth_token, model_name, log_level):
+@click.option(
+    "--include-import-rules",
+    is_flag=True,
+    help="Include @file references to imported files in MDC content.",
+)
+def analyze(repo_url, local_path, output_dir, oauth_token, model_name, log_level, include_import_rules):
     """Analyze a repository and generate MDC files.
     
     You must specify either --repo-url or --local-path.
@@ -74,6 +79,7 @@ def analyze(repo_url, local_path, output_dir, oauth_token, model_name, log_level
             output_dir=output_dir,
             oauth_token=oauth_token,
             model_name=model_name,
+            include_import_rules=include_import_rules
         )
     )
     click.echo("Analysis complete. Results saved to {}".format(os.path.abspath(output_dir)))
