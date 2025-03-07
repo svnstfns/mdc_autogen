@@ -29,7 +29,7 @@ def cli():
 @click.option(
     "--out",
     "-o",
-    default="output",
+    default="mdc_output",
     help="Directory to output the analysis results.",
 )
 @click.option(
