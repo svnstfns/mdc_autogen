@@ -111,15 +111,3 @@ mdcgen /path/to/repo --imports
 # Using short aliases for common options
 mdcgen /path/to/repo -o ./output -m gpt-4o -d 1
 ```
-```
-
-The key changes I made:
-
-1. Removed all references to the `analyze` subcommand
-2. Updated examples to use the positional argument for local paths
-3. Added an example for analyzing the current directory
-4. Updated the command reference table to show `PATH` as the positional argument
-5. Reorganized the examples section for clarity
-6. Updated all command examples throughout the document
-
-This README now accurately reflects the simplified CLI interface where users can just type `mdcgen` followed by an optional path.
