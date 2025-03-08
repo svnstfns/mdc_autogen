@@ -18,9 +18,12 @@ uv install mdcgen
 
 ## Installation with Visualization Support
 
+You may need to install pygraphviz separately
+
 macOS:
 ```bash
 brew install graphviz
+pip install --global-option=build_ext --global-option="-I/opt/homebrew/include/" --global-option="-L/opt/homebrew/lib/" pygraphviz
 pip install mdcgen[visualization]
 ```
 
