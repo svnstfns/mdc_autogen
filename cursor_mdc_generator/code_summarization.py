@@ -12,6 +12,7 @@ from .llm_utils.prompts import (
     format_repository_prompt,
     SYSTEM_PROMPT,
 )
+from .llm_utils.tokenize_utils import get_tokenizer, tokenize
 
 
 def read_file_content(file_path):
@@ -89,7 +90,6 @@ async def generate_directory_mdc(
     dependency_graph,
     output_dir,
     model_name="gpt-4o-mini",
-    temperature=0.3,
 ):
     """
     Generate an MDC file for a directory, including dependency information.
@@ -100,14 +100,15 @@ async def generate_directory_mdc(
         dependency_graph: NetworkX DiGraph with dependency information
         output_dir: Directory to write the MDC file
         model_name: OpenAI model to use
-        temperature: Temperature for generation
 
     Returns:
-        Path to the generated MDC file
+        Tuple of (directory, dir_mdc_path, user_prompt, selected_model, needs_large_context)
     """
     try:
-        # Create directory-specific MDC path
-        dir_mdc_path = os.path.join(output_dir, directory, "_directory.mdc")
+        # Create directory-specific MDC path with flattened structure
+        # Replace slashes with underscores to create a unique filename
+        dir_filename = directory.replace("/", "_").replace("\\", "_")
+        dir_mdc_path = os.path.join(output_dir, f"{dir_filename}_directory.mdc")
         os.makedirs(os.path.dirname(dir_mdc_path), exist_ok=True)
 
         # Find files in this directory
@@ -144,17 +145,35 @@ async def generate_directory_mdc(
             directory, dir_files, dir_imports, imported_by_dir
         )
 
-        # Generate MDC content
-        response = await generate_mdc_response(
-            system_prompt=SYSTEM_PROMPT,
-            user_prompt=user_prompt,
-            model_name=model_name,
-            temperature=temperature,
-        )
+        # Calculate token count for context window management
+        tokenizer = get_tokenizer("gpt-4o")
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ]
+        messages_tokens = 0
+        for message in messages:
+            messages_tokens += len(tokenize(message["content"], tokenizer))
 
-        # Write MDC file
-        write_mdc_file(dir_mdc_path, response)
-        return dir_mdc_path
+        # Determine the appropriate model based on token count
+        needs_large_context = False
+        if messages_tokens > 1000000:  # >1M tokens
+            needs_large_context = True
+            selected_model = "gemini-2.0-flash"
+        elif messages_tokens > 200000:  # 200K-1M tokens
+            selected_model = "gemini-2.0-flash"
+        elif messages_tokens > 128000:  # 128K-200K tokens
+            selected_model = "claude-3-5-sonnet-latest"
+        else:  # <128K tokens
+            selected_model = model_name
+
+        return (
+            directory,
+            dir_mdc_path,
+            user_prompt,
+            selected_model,
+            needs_large_context,
+        )
 
     except Exception as e:
         logging.error("Error generating directory MDC for {}: {}".format(directory, e))
@@ -162,7 +181,6 @@ async def generate_directory_mdc(
 
 
 async def generate_high_level_mdc(
-    repo_path,
     file_snippets_dict,
     dependency_graph,
     output_dir,
@@ -184,7 +202,7 @@ async def generate_high_level_mdc(
         Path to the generated MDC file
     """
     try:
-        # Create repository-level MDC path
+        # Create repository-level MDC path with flattened structure
         repo_mdc_path = os.path.join(output_dir, "_repository.mdc")
         os.makedirs(os.path.dirname(repo_mdc_path), exist_ok=True)
 
@@ -300,6 +318,7 @@ async def generate_mdc_files(
     # Batch preparation for file-specific MDCs
     file_prompts = []
     file_paths = []
+    file_output_paths = []
 
     for file_path, snippets in file_data.items():
         if not snippets:  # Skip files with no content
@@ -322,30 +341,36 @@ async def generate_mdc_files(
         )
         file_paths.append(file_path)
 
+        # Create flattened output path
+        flat_file_path = file_path.replace("/", "_").replace("\\", "_")
+        file_output_paths.append(os.path.join(output_dir, f"{flat_file_path}.mdc"))
+
     # Batch generate file MDCs
     file_responses = await batch_generate_mdc_responses(
         prompts=file_prompts, model_name=model_name
     )
 
     # Write MDC files for files
-    for file_path, response in zip(file_paths, file_responses):
+    for file_path, output_path, response in zip(
+        file_paths, file_output_paths, file_responses
+    ):
         if response:
-            mdc_path = os.path.join(output_dir, "{}.mdc".format(file_path))
-
             if include_import_rules and file_path in dependency_graph.nodes():
                 imports = [succ for succ in dependency_graph.successors(file_path)]
                 if imports:
                     import_references = "\n\n## Imported Files\n"
                     for imported_file in imports:
-                        import_references += "@file .cursor/rules/{}.mdc\n".format(
-                            imported_file
+                        # Create flattened reference path
+                        flat_import_path = imported_file.replace("/", "_").replace(
+                            "\\", "_"
                         )
+                        import_references += f"@file {flat_import_path}.mdc\n"
 
                     # Append the import references to the content
                     response.content += import_references
 
-            write_mdc_file(mdc_path, response)
-            mdc_files.append(mdc_path)
+            write_mdc_file(output_path, response)
+            mdc_files.append(output_path)
 
     # Generate directory MDCs if not skipped
     if not skip_directory_mdcs and max_directory_depth > 0:
@@ -366,12 +391,70 @@ async def generate_mdc_files(
             f"Generating MDC files for {len(directories_to_process)} directories (max depth: {max_directory_depth})"
         )
 
+        # Batch preparation for directory-specific MDCs
+        dir_prompts = []
+        dir_paths = []
+        dir_models = []
+        large_context_dirs = []
+
+        # Prepare all directory prompts
         for directory in directories_to_process:
-            mdc_path = await generate_directory_mdc(
-                directory, file_data, dependency_graph, output_dir, model_name
+            result = await generate_directory_mdc(
+                directory,
+                file_data,
+                dependency_graph,
+                output_dir,
+                model_name,
             )
-            if mdc_path:
-                mdc_files.append(mdc_path)
+
+            if result:
+                (
+                    directory,
+                    dir_mdc_path,
+                    user_prompt,
+                    selected_model,
+                    needs_large_context,
+                ) = result
+
+                if needs_large_context:
+                    large_context_dirs.append((directory, dir_mdc_path, user_prompt))
+                else:
+                    dir_prompts.append(
+                        {"system_prompt": SYSTEM_PROMPT, "user_prompt": user_prompt}
+                    )
+                    dir_paths.append(dir_mdc_path)
+                    dir_models.append(selected_model)
+
+        # Process regular directories in batch with their respective models
+        if dir_prompts:
+            dir_responses = await batch_generate_mdc_responses(
+                prompts=dir_prompts, model_names=dir_models
+            )
+
+            # Write MDC files for directories
+            for dir_path, response in zip(dir_paths, dir_responses):
+                if response:
+                    write_mdc_file(dir_path, response)
+                    mdc_files.append(dir_path)
+
+        # Process large context directories individually
+        for directory, dir_mdc_path, user_prompt in large_context_dirs:
+            try:
+                response = await generate_mdc_response(
+                    system_prompt=SYSTEM_PROMPT,
+                    user_prompt=user_prompt,
+                    model_name=model_name,  # Will be overridden based on token count
+                    temperature=0.3,
+                )
+
+                if response:
+                    write_mdc_file(dir_mdc_path, response)
+                    mdc_files.append(dir_mdc_path)
+            except Exception as e:
+                logging.error(
+                    f"Error processing large context directory {directory}: {e}"
+                )
+
     elif skip_directory_mdcs:
         logging.info("Skipping directory MDC generation as requested")
     else:
@@ -380,7 +463,6 @@ async def generate_mdc_files(
     # Generate high-level repository MDC if not skipped
     if not skip_repository_mdc:
         repo_mdc_path = await generate_high_level_mdc(
-            os.path.dirname(list(file_data.keys())[0]) if file_data else ".",
             file_data,
             dependency_graph,
             output_dir,

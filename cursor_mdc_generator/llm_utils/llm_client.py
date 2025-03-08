@@ -147,10 +147,10 @@ async def generate_mdc_response(
 
     # For content within Gemini's context window but large, start with Gemini directly
     elif messages_tokens > 200000:  # 200K-1M tokens
-        selected_model = "gemini-2.0-flash-exp"
+        selected_model = "gemini-2.0-flash"
     # For medium-sized content, start with Claude
     elif messages_tokens > 128000:  # 128K-200K tokens
-        selected_model = "claude-3-5-sonnet-20241022"
+        selected_model = "claude-3-5-sonnet-latest"
     # For smaller content, use the requested model
     else:  # <128K tokens
         selected_model = model_name
@@ -268,17 +268,19 @@ async def process_large_content(
 
 
 async def batch_generate_mdc_responses(
-    prompts: List[Dict[str, str]],
-    model_name: str = "gpt-4o-mini",
+    prompts: list[Dict[str, str]],
+    model_name: Optional[str] = "gpt-4o-mini",
+    model_names: Optional[list[str]] = None,
     temperature: float = 0.0,
-) -> List[MDCResponse]:
+) -> list[MDCResponse]:
     """
     Process a batch of MDC generation requests using the litellm Router.
     Lets LiteLLM router handle batching and rate limiting automatically.
 
     Args:
         prompts: List of dicts with 'system_prompt' and 'user_prompt'
-        model_name: Model name for router
+        model_name: Optional model name for router (used if model_names is None)
+        model_names: Optional list of model names, one per prompt (overrides model_name)
         temperature: Temperature for generation
 
     Returns:
@@ -290,35 +292,54 @@ async def batch_generate_mdc_responses(
     # Prepare all messages
     all_messages = []
     for p in prompts:
-        system_prompt = p.get("system_prompt", "You are an expert code documentation specialist.")
+        system_prompt = p.get(
+            "system_prompt", "You are an expert code documentation specialist."
+        )
         user_prompt = p["user_prompt"]
-        
+
         # Format messages for this prompt
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
         all_messages.append(messages)
-    
+
     # Common model parameters
-    model_kwargs = {
-        "temperature": temperature,
-        "response_format": MDCResponse
-    }
-    
+    model_kwargs = {"temperature": temperature, "response_format": MDCResponse}
+
     try:
-        # Make all API calls concurrently, letting LiteLLM handle batching and rate limiting
-        responses = await asyncio.gather(
-            *(router.acompletion(model=model_name, messages=messages, **model_kwargs) 
-              for messages in all_messages),
-            return_exceptions=True
-        )
-        
+        # If model_names is provided, use a different model for each prompt
+        if model_names and len(model_names) == len(prompts):
+            # Make all API calls concurrently with different models
+            responses = await asyncio.gather(
+                *(
+                    router.acompletion(
+                        model=model_names[i], messages=messages, **model_kwargs
+                    )
+                    for i, messages in enumerate(all_messages)
+                ),
+                return_exceptions=True,
+            )
+        else:
+            # Use the same model for all prompts
+            responses = await asyncio.gather(
+                *(
+                    router.acompletion(
+                        model=model_name, messages=messages, **model_kwargs
+                    )
+                    for messages in all_messages
+                ),
+                return_exceptions=True,
+            )
+
         # Process responses
         results = []
         for i, response in enumerate(responses):
             if isinstance(response, Exception):
-                logging.error(f"Error processing prompt {i}: {response}")
+                model_used = model_names[i] if model_names else model_name
+                logging.error(
+                    f"Error processing prompt {i} with model {model_used}: {response}"
+                )
                 results.append(None)
             else:
                 try:
@@ -328,17 +349,20 @@ async def batch_generate_mdc_responses(
                 except Exception as e:
                     logging.error(f"Error parsing response {i}: {e}")
                     results.append(None)
-        
+
         # Log batch cost summary
         batch_cost = get_total_cost() - initial_cost
         logging.info(f"===== BATCH COST SUMMARY =====")
-        logging.info(f"Processed {len(prompts)} prompts for a total cost of ${batch_cost:.6f}")
+        logging.info(
+            f"Processed {len(prompts)} prompts for a total cost of ${batch_cost:.6f}"
+        )
         logging.info(f"Average cost per prompt: ${batch_cost/len(prompts):.6f}")
-        print(f"\033[92mBatch processing complete. Total cost: ${batch_cost:.6f}\033[0m")
-        
-        # Filter out None values (failed requests)
-        return [r for r in results if r is not None]
-        
+        print(
+            f"\033[92mBatch processing complete. Total cost: ${batch_cost:.6f}\033[0m"
+        )
+
+        return results
+
     except Exception as e:
         logging.error(f"Batch processing failed: {e}")
         raise
