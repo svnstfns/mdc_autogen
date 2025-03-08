@@ -153,5 +153,19 @@ The output should help developers quickly understand the overall structure and o
     return prompt
 
 
+def format_consolidation_prompt(valid_results, mdc_outputs):
+    """Format the prompt for consolidating MDC results."""
+    prompt = """
+    I have processed a large codebase in {} separate chunks, and now I need you to combine these results
+    into a single cohesive MDC file. Below are the separate MDC outputs from each chunk:
+    
+    {}
+    
+    Please create a single, comprehensive MDC output that synthesizes all the information above, removing duplicates and
+    organizing the content logically. The final result should be a cohesive documentation of the entire codebase.
+    """.format(len(valid_results), "\n\n".join(mdc_outputs))
+    return prompt
+
+
 # System prompt for all MDC generation requests
 SYSTEM_PROMPT = "You are an expert code documentation specialist."

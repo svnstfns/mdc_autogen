@@ -73,4 +73,13 @@ chat_model_list = [
             "tpm": 10000000,
         },
     },
+    {
+        "model_name": "gemini-2.0-flash",
+        "litellm_params": {
+            "model": "gemini/gemini-2.0-flash",
+            "api_key": os.getenv("GEMINI_API_KEY"),
+            "rpm": 10000,
+            "tpm": 10000000,
+        },
+    },
 ]

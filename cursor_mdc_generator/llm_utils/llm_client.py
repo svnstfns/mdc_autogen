@@ -9,6 +9,7 @@ import threading
 from .model_lists import chat_model_list
 from .models import MDCResponse
 from .tokenize_utils import get_tokenizer, tokenize
+from .prompts import format_consolidation_prompt
 
 
 # Configure litellm Router
@@ -17,6 +18,13 @@ router = Router(
     num_retries=3,
     timeout=30,
     routing_strategy="least-busy",  # Use least-busy strategy for optimal throughput
+    fallbacks=[],  # General fallbacks for any error
+    context_window_fallbacks=[
+        {"gpt-4o-mini": ["gemini-2.0-flash"]},
+        {"gpt-4o": ["gemini-2.0-flash"]},
+        {"deepseek-chat": ["gemini-2.0-flash"]},
+        {"o1": ["gemini-2.0-flash"]},
+    ],  # Specific fallbacks for context window exceeded errors
 )
 
 # Global cost tracking with thread safety
@@ -133,23 +141,36 @@ async def generate_mdc_response(
         messages_tokens += len(tokenize(message["content"], tokenizer))
     print("\033[91m" + f"Messages tokens: {messages_tokens}" + "\033[0m")
 
-    # Model selection based on token count
+    # For extremely large content, still use the chunking approach
     if messages_tokens > 1000000:  # >1M tokens
         return await process_large_content(system_prompt, user_prompt, temperature)
+
+    # For content within Gemini's context window but large, start with Gemini directly
     elif messages_tokens > 200000:  # 200K-1M tokens
         selected_model = "gemini-2.0-flash-exp"
+    # For medium-sized content, start with Claude
     elif messages_tokens > 128000:  # 128K-200K tokens
-        selected_model = "claude-3-5-sonnet-latest"
+        selected_model = "claude-3-5-sonnet-20241022"
+    # For smaller content, use the requested model
     else:  # <128K tokens
-        selected_model = model_name  # Default to provided model (e.g., gpt-4o-mini)
+        selected_model = model_name
 
-    # Use selected model
-    return await generate_response(
-        messages=messages,
-        model_name=selected_model,
-        response_model=MDCResponse,
-        temperature=temperature,
-    )
+    # Use selected model with LiteLLM's automatic fallbacks
+    try:
+        return await generate_response(
+            messages=messages,
+            model_name=selected_model,
+            response_model=MDCResponse,
+            temperature=temperature,
+        )
+    except Exception as e:
+        logging.error(f"Error with model {selected_model}: {e}")
+        # If we're already using Gemini and still failing, resort to chunking
+        if selected_model == "gemini-2.0-flash-exp":
+            logging.info("Falling back to chunking approach for very large content")
+            return await process_large_content(system_prompt, user_prompt, temperature)
+        # Otherwise, let the exception propagate (LiteLLM will handle fallbacks)
+        raise
 
 
 async def process_large_content(
@@ -228,15 +249,7 @@ async def process_large_content(
         mdc_outputs.append(mdc_str)
 
     # Create a prompt for the second call
-    consolidation_prompt = """
-    I have processed a large codebase in {} separate chunks, and now I need you to combine these results
-    into a single cohesive MDC file. Below are the separate MDC outputs from each chunk:
-    
-    {}
-    
-    Please create a single, comprehensive MDC output that synthesizes all the information above, removing duplicates and
-    organizing the content logically. The final result should be a cohesive documentation of the entire codebase.
-    """.format(len(valid_results), "\n\n".join(mdc_outputs))
+    consolidation_prompt = format_consolidation_prompt(valid_results, mdc_outputs)
 
     # Make the final call to combine results (using a model with smaller context since combined MDCs are much smaller)
     final_result = await generate_response(
@@ -254,21 +267,19 @@ async def process_large_content(
     return final_result
 
 
-# Function to process a batch of MDC generation requests
 async def batch_generate_mdc_responses(
     prompts: List[Dict[str, str]],
     model_name: str = "gpt-4o-mini",
-    temperature: float = 0.3,
-    batch_size: int = 10,
+    temperature: float = 0.0,
 ) -> List[MDCResponse]:
     """
     Process a batch of MDC generation requests using the litellm Router.
+    Lets LiteLLM router handle batching and rate limiting automatically.
 
     Args:
         prompts: List of dicts with 'system_prompt' and 'user_prompt'
         model_name: Model name for router
         temperature: Temperature for generation
-        batch_size: Number of requests to process at once
 
     Returns:
         List of MDCResponse objects
@@ -276,44 +287,58 @@ async def batch_generate_mdc_responses(
     # Reset cost tracker at the beginning of batch
     initial_cost = get_total_cost()
 
-    all_results = []
-
-    # Process in smaller batches to avoid overwhelming the system
-    for i in range(0, len(prompts), batch_size):
-        batch = prompts[i : i + batch_size]
-
-        # Create tasks for each prompt
-        tasks = [
-            generate_mdc_response(
-                p.get(
-                    "system_prompt", "You are an expert code documentation specialist."
-                ),
-                p["user_prompt"],
-                model_name,
-                temperature,
-            )
-            for p in batch
+    # Prepare all messages
+    all_messages = []
+    for p in prompts:
+        system_prompt = p.get("system_prompt", "You are an expert code documentation specialist.")
+        user_prompt = p["user_prompt"]
+        
+        # Format messages for this prompt
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ]
-
-        # Run all tasks concurrently
-        batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Handle any exceptions
-        for j, result in enumerate(batch_results):
-            if isinstance(result, Exception):
-                logging.error("Error processing prompt {}: {}".format(i + j, result))
-                batch_results[j] = None
-
-        all_results.extend(batch_results)
-
-    # Log batch cost summary
-    batch_cost = get_total_cost() - initial_cost
-    logging.info(f"===== BATCH COST SUMMARY =====")
-    logging.info(
-        f"Processed {len(prompts)} prompts for a total cost of ${batch_cost:.6f}"
-    )
-    logging.info(f"Average cost per prompt: ${batch_cost/len(prompts):.6f}")
-    print(f"\033[92mBatch processing complete. Total cost: ${batch_cost:.6f}\033[0m")
-
-    # Filter out None values (failed requests)
-    return [r for r in all_results if r is not None]
+        all_messages.append(messages)
+    
+    # Common model parameters
+    model_kwargs = {
+        "temperature": temperature,
+        "response_format": MDCResponse
+    }
+    
+    try:
+        # Make all API calls concurrently, letting LiteLLM handle batching and rate limiting
+        responses = await asyncio.gather(
+            *(router.acompletion(model=model_name, messages=messages, **model_kwargs) 
+              for messages in all_messages),
+            return_exceptions=True
+        )
+        
+        # Process responses
+        results = []
+        for i, response in enumerate(responses):
+            if isinstance(response, Exception):
+                logging.error(f"Error processing prompt {i}: {response}")
+                results.append(None)
+            else:
+                try:
+                    content, cost = text_cost_parser(response)
+                    datamodel = MDCResponse(**json.loads(content))
+                    results.append(datamodel)
+                except Exception as e:
+                    logging.error(f"Error parsing response {i}: {e}")
+                    results.append(None)
+        
+        # Log batch cost summary
+        batch_cost = get_total_cost() - initial_cost
+        logging.info(f"===== BATCH COST SUMMARY =====")
+        logging.info(f"Processed {len(prompts)} prompts for a total cost of ${batch_cost:.6f}")
+        logging.info(f"Average cost per prompt: ${batch_cost/len(prompts):.6f}")
+        print(f"\033[92mBatch processing complete. Total cost: ${batch_cost:.6f}\033[0m")
+        
+        # Filter out None values (failed requests)
+        return [r for r in results if r is not None]
+        
+    except Exception as e:
+        logging.error(f"Batch processing failed: {e}")
+        raise

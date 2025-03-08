@@ -324,7 +324,7 @@ async def generate_mdc_files(
 
     # Batch generate file MDCs
     file_responses = await batch_generate_mdc_responses(
-        prompts=file_prompts, model_name=model_name, batch_size=10
+        prompts=file_prompts, model_name=model_name
     )
 
     # Write MDC files for files
