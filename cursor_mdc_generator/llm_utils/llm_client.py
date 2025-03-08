@@ -115,7 +115,7 @@ async def generate_mdc_response(
     system_prompt: str,
     user_prompt: str,
     model_name: str = "gpt-4o-mini",
-    temperature: float = 0.3,
+    temperature: float = 0.0,
 ) -> MDCResponse:
     """
     Generate an MDC response using the litellm Router.
@@ -166,7 +166,7 @@ async def generate_mdc_response(
     except Exception as e:
         logging.error(f"Error with model {selected_model}: {e}")
         # If we're already using Gemini and still failing, resort to chunking
-        if selected_model == "gemini-2.0-flash-exp":
+        if selected_model == "gemini-2.0-flash":
             logging.info("Falling back to chunking approach for very large content")
             return await process_large_content(system_prompt, user_prompt, temperature)
         # Otherwise, let the exception propagate (LiteLLM will handle fallbacks)
@@ -222,7 +222,7 @@ async def process_large_content(
                 },
                 {"role": "user", "content": chunk},
             ],
-            model_name="gemini-2.0-flash-exp",
+            model_name="gemini-2.0-flash",
             response_model=MDCResponse,
             temperature=temperature,
         )

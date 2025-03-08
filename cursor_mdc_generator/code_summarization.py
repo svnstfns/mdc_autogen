@@ -84,7 +84,7 @@ def split_content(content, file_path):
         return [{"name": "whole_file", "type": "file", "content": content}]
 
 
-async def generate_directory_mdc(
+async def prepare_directory_mdc(
     directory,
     file_snippets_dict,
     dependency_graph,
@@ -92,7 +92,7 @@ async def generate_directory_mdc(
     model_name="gpt-4o-mini",
 ):
     """
-    Generate an MDC file for a directory, including dependency information.
+    Prepare an MDC file for a directory, including dependency information.
 
     Args:
         directory: Directory path to document
@@ -399,7 +399,7 @@ async def generate_mdc_files(
 
         # Prepare all directory prompts
         for directory in directories_to_process:
-            result = await generate_directory_mdc(
+            result = await prepare_directory_mdc(
                 directory,
                 file_data,
                 dependency_graph,
@@ -439,12 +439,13 @@ async def generate_mdc_files(
 
         # Process large context directories individually
         for directory, dir_mdc_path, user_prompt in large_context_dirs:
+            print("\033[91mProcessing large context directory: {directory}\033[0m")
             try:
                 response = await generate_mdc_response(
                     system_prompt=SYSTEM_PROMPT,
                     user_prompt=user_prompt,
                     model_name=model_name,  # Will be overridden based on token count
-                    temperature=0.3,
+                    temperature=0.0,
                 )
 
                 if response:
