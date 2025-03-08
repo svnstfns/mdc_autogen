@@ -86,6 +86,30 @@ def get_ignore_patterns(local_path):
         r".*LICENSE/.*",
         r".*README$",
         r".*README/.*",
+        # Ignore image files
+        r".*\.png$",
+        r".*\.jpg$",
+        r".*\.jpeg$",
+        r".*\.gif$",
+        r".*\.bmp$",
+        r".*\.tiff$",
+        r".*\.svg$",
+        # Ignore data files
+        r".*\.csv$",
+        r".*\.tsv$",
+        r".*\.json$",
+        r".*\.xml$",
+        r".*\.yaml$",
+        r".*\.yml$",
+        r".*\.parquet$",
+        r".*\.avro$",
+        r".*\.orc$",
+        r".*\.h5$",
+        r".*\.hdf5$",
+        r".*\.feather$",
+        r".*\.xlsx$",
+        r".*\.xls$",
+        r".*\.ods$",
     ]
 
     # Compile gitignore patterns using fnmatch.translate and common patterns directly

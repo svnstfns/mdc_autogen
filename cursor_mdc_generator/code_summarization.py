@@ -78,7 +78,7 @@ def split_content(content, file_path):
             return [{"name": "whole_file", "type": "file", "content": content}]
     # Handle JavaScript and TypeScript files
     elif file_path.endswith((".js", ".jsx", ".ts", ".tsx")):
-        pass
+        return [{"name": "whole_file", "type": "file", "content": content}]
     else:
         # For all other file types, just include them as whole files
         return [{"name": "whole_file", "type": "file", "content": content}]
