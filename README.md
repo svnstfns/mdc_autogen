@@ -40,26 +40,29 @@ Windows:
 To analyze a repository and generate MDC files:
 
 ```bash
-# Analyze a local repository
-mdcgen analyze --local /path/to/repository
+# Analyze current directory
+mdcgen
+
+# Analyze a specific local directory
+mdcgen /path/to/repository
 
 # Analyze a remote repository
-mdcgen analyze --repo https://github.com/user/repo
+mdcgen --repo https://github.com/user/repo
 
 # Specify output directory
-mdcgen analyze --repo https://github.com/user/repo --out ./mdc-output
+mdcgen /path/to/repository --out ./mdc-output
 
 # Use a specific model
-mdcgen analyze --local /path/to/repo --model gpt-4o
+mdcgen /path/to/repo --model gpt-4o
 
 # Skip visualization (useful if you don't have Graphviz installed)
-mdcgen analyze --local /path/to/repo --no-viz
+mdcgen /path/to/repo --no-viz
 ```
 
 For private repositories:
 
 ```bash
-mdcgen analyze --repo https://github.com/user/private-repo --token YOUR_GITHUB_TOKEN
+mdcgen --repo https://github.com/user/private-repo --token YOUR_GITHUB_TOKEN
 ```
 
 ## Features
@@ -79,8 +82,8 @@ mdcgen analyze --repo https://github.com/user/private-repo --token YOUR_GITHUB_T
 
 | Option | Alias | Description |
 |--------|-------|-------------|
-| `--repo` | `-r` | GitHub repository URL |
-| `--local` | `-l` | Local path to repository |
+| `PATH` | | Local path to repository (default: current directory) |
+| `--repo` | `-r` | GitHub repository URL (instead of local path) |
 | `--out` | `-o` | Output directory for analysis files |
 | `--model` | `-m` | Model to use for summaries (default: gpt-4o-mini) |
 | `--token` | `-t` | OAuth token for private repositories |
@@ -90,14 +93,30 @@ mdcgen analyze --repo https://github.com/user/private-repo --token YOUR_GITHUB_T
 | `--depth` | `-d` | Max directory depth (0=repo only, 1=top-level dirs) |
 | `--log-level` | | Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 
+## Examples
+
+```bash
 # Skip all directory-level MDCs (only generate file and repository MDCs)
-mdcgen analyze --local /path/to/repo --no-dirs
+mdcgen /path/to/repo --no-dirs
 
 # Limit directory depth (0=repo only, 1=top-level dirs only)
-mdcgen analyze --local /path/to/repo --depth 1
+mdcgen /path/to/repo --depth 1
 
 # Include import references in MDC files
-mdcgen analyze --local /path/to/repo --imports
+mdcgen /path/to/repo --imports
 
 # Using short aliases for common options
-mdcgen analyze -l /path/to/repo -o ./output -m gpt-4o -d 1
+mdcgen /path/to/repo -o ./output -m gpt-4o -d 1
+```
+```
+
+The key changes I made:
+
+1. Removed all references to the `analyze` subcommand
+2. Updated examples to use the positional argument for local paths
+3. Added an example for analyzing the current directory
+4. Updated the command reference table to show `PATH` as the positional argument
+5. Reorganized the examples section for clarity
+6. Updated all command examples throughout the document
+
+This README now accurately reflects the simplified CLI interface where users can just type `mdcgen` followed by an optional path.

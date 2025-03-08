@@ -9,22 +9,12 @@ import logging
 from .repo_analyzer import analyze_repository
 
 
-@click.group()
-def cli():
-    """Generate MDC files for Cursor IDE from repository analysis."""
-    pass
-
-
-@cli.command()
+@click.command()
+@click.argument("path", default=".", type=click.Path(exists=True), required=False)
 @click.option(
     "--repo",
     "-r",
-    help="URL of the repository to analyze.",
-)
-@click.option(
-    "--local",
-    "-l",
-    help="Local path to the repository.",
+    help="URL of the repository to analyze (instead of local path).",
 )
 @click.option(
     "--out",
@@ -79,12 +69,14 @@ def cli():
     default=2,
     help="Max directory depth (0=repo only, 1=top-level dirs).",
 )
-def analyze(
-    repo, local, out, token, model, log_level, imports, no_viz, no_dirs, no_repo, depth
+def cli(
+    path, repo, out, token, model, log_level, imports, no_viz, no_dirs, no_repo, depth
 ):
-    """Analyze a repository and generate MDC files.
-
-    You must specify either --repo or --local.
+    """Generate MDC files for Cursor IDE from repository analysis.
+    
+    PATH is the local repository path to analyze (defaults to current directory).
+    
+    Alternatively, use --repo to analyze a remote repository.
     """
     # Set up logging
     logging.basicConfig(
@@ -102,15 +94,15 @@ def analyze(
         )
         return
 
-    if not repo and not local:
-        click.echo("Error: Either --repo or --local must be specified.")
-        return
+    local_path = path
+    if repo:
+        local_path = None  # If repo URL is provided, don't use local path
 
     # Run the analysis
     asyncio.run(
         analyze_repository(
             repo_url=repo,
-            local_path=local,
+            local_path=local_path,
             output_dir=out,
             oauth_token=token,
             model_name=model,
