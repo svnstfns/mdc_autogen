@@ -1,6 +1,8 @@
 # Cursor MDC Generator
 
-Autogenerate better Cursor documentation files (MDC) to build faster.
+Autogenerate better Cursor documentation files (MDC).
+Vibe coding is easier when your AI knows the rules.
+
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/pranaviyer27?style=social)](https://twitter.com/pranaviyer27)
 
