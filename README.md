@@ -2,6 +2,14 @@
 
 Autogenerate better Cursor documentation files (MDC) to build faster.
 
+## Features
+
+- Analyzes repository structure and code dependencies
+- Generates documentation files (MDC) for Cursor
+- Visualize dependency graph between files (if enabled)
+- Supports both local and remote repositories
+- Compatible with python, typescript, and javascript (for now)
+
 ## Installation
 
 You can install the package using pip:
@@ -67,14 +75,6 @@ For private repositories:
 ```bash
 mdcgen --repo https://github.com/user/private-repo --token YOUR_GITHUB_TOKEN
 ```
-
-## Features
-
-- Analyzes repository structure and code dependencies
-- Creates dependency graphs to visualize relationships between files (if enabled)
-- Generates documentation files (MDC) for use with Cursor IDE
-- Supports both local and remote repositories
-- Compatible with various programming languages (python, typescript, javascript for now)
 
 ## Requirements
 
