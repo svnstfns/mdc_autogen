@@ -2,6 +2,8 @@
 
 Autogenerate better Cursor documentation files (MDC) to build faster.
 
+[![Twitter Follow](https://img.shields.io/twitter/follow/pranaviyer27?style=social)](https://twitter.com/pranaviyer27)
+
 ## Features
 
 - Analyzes repository structure and code dependencies
