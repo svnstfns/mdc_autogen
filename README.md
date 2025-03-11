@@ -1,6 +1,6 @@
 # Cursor MDC Generator
 
-A tool to generate Cursor IDE documentation files (MDC) from repository analysis.
+Autogenerate better Cursor documentation files (MDC) to build faster.
 
 ## Installation
 
