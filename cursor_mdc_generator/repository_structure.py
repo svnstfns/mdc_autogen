@@ -43,36 +43,6 @@ def get_ignore_patterns(local_path):
         r".*package-lock.json",
         r".*package.json",
         r".*\.DS_Store",
-        r".*\.vscode$",  # Match the .vscode directory itself
-        r".*\.vscode/.*",
-        r".*tests$",  # Match the tests directory itself
-        r".*tests/.*",
-        r".*\.pyc",
-        r".*__pycache__$",  # Match the __pycache__ directory itself
-        r".*__pycache__/.*",
-        r".*\.idea$",  # Match the .idea directory itself
-        r".*\.idea/.*",
-        r".*node_modules$",  # Match the node_modules directory itself
-        r".*node_modules/.*",
-        r".*dist$",  # Match the dist directory itself
-        r".*dist/.*",
-        r".*build$",  # Match the build directory itself
-        r".*build/.*",
-        r".*vendor$",  # Match the vendor directory itself
-        r".*vendor/.*",
-        r".*\.next$",  # Match the .next directory itself
-        r".*\.next/.*",
-        r".*coverage$",  # Match the coverage directory itself
-        r".*coverage/.*",
-        r".*\.pytest_cache$",  # Match the .pytest_cache directory itself
-        r".*\.pytest_cache/.*",
-        r".*\.cache$",  # Match the .cache directory itself
-        r".*\.cache/.*",
-        r".*\.cursor$",  # Match the .cursor directory itself
-        r".*\.cursor/.*",
-        r".*\.ruff_cache$",  # Match the .ruff_cache directory itself
-        r".*\.ruff_cache/.*",
-        r".*\.DS_Store",
         r".*\.DS_Store/.*",
         r".*\.venv$",  # Match the .venv directory itself
         r".*\.venv/.*",
@@ -110,6 +80,34 @@ def get_ignore_patterns(local_path):
         r".*\.xlsx$",
         r".*\.xls$",
         r".*\.ods$",
+        
+        # Ignore documentation files
+        r".*\.md$",  # Markdown
+        r".*\.rst$",  # reStructuredText
+        r".*\.adoc$",  # AsciiDoc
+        r".*\.asciidoc$",  # AsciiDoc
+        r".*\.textile$",  # Textile
+        r".*\.docbook$",  # DocBook
+        r".*\.db$",  # DocBook
+        r".*\.pdf$",  # PDF
+        r".*\.html$",  # HTML documentation
+        r".*\.htm$",  # HTML documentation
+        r".*\.tex$",  # LaTeX
+        r".*\.txt$",  # Plain text
+        r".*\.man$",  # Man pages
+        r".*\.[1-9]$",  # Man pages (numbered sections)
+        
+        # Ignore documentation directories
+        r".*docs$",
+        r".*docs/.*",
+        r".*doc$", 
+        r".*doc/.*",
+        r".*documentation$",
+        r".*documentation/.*",
+        r".*manual$",
+        r".*manual/.*",
+        r".*wiki$",
+        r".*wiki/.*",
     ]
 
     # Compile gitignore patterns using fnmatch.translate and common patterns directly
