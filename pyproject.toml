@@ -27,6 +27,7 @@ visualization = ["pygraphviz"]
 
 [project.scripts]
 mdcgen = "cursor_mdc_generator.cli:main"
+mdcgen-thematic = "cursor_mdc_generator.cli_thematic:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
