@@ -11,6 +11,7 @@ Vibe coding is easier when your AI knows the rules.
 - Analyzes repository structure and code dependencies
 - Generates documentation files (MDC) for Cursor
 - **Intelligent quality assessment** - checks existing MDC files and only updates those with poor quality
+- **Flexible authentication** - supports environment variables, OIDC, service accounts, and FastAPI services
 - Visualize dependency graph between files (if enabled)
 - Supports both local and remote repositories
 - Compatible with python, typescript, and javascript (for now)
@@ -122,10 +123,76 @@ For private repositories:
 mdcgen --repo https://github.com/user/private-repo --token YOUR_GITHUB_TOKEN
 ```
 
+## Authentication
+
+The tool requires LLM API keys to function. Multiple authentication methods are supported, with automatic fallback to find available keys:
+
+### 1. Environment Variables (Simplest)
+
+Set API keys as environment variables:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+export GEMINI_API_KEY="..."
+export DEEPSEEK_API_KEY="..."
+
+mdcgen /path/to/repo
+```
+
+### 2. OIDC Authentication (Enterprise)
+
+Authenticate using OpenID Connect:
+
+```bash
+export OIDC_TOKEN_ENDPOINT="https://auth.example.com/oauth/token"
+export OIDC_CLIENT_ID="your-client-id"
+export OIDC_CLIENT_SECRET="your-client-secret"
+export OIDC_KEY_ENDPOINT="https://keys.example.com/api/llm-keys"
+
+mdcgen /path/to/repo
+```
+
+### 3. Service Account (Secure)
+
+Use a service account credentials file:
+
+```bash
+export SERVICE_ACCOUNT_FILE="/path/to/service-account.json"
+export SERVICE_ACCOUNT_KEY_ENDPOINT="https://keys.example.com/api/llm-keys"
+
+mdcgen /path/to/repo
+```
+
+### 4. FastAPI Service (Flexible)
+
+Retrieve keys from a FastAPI service:
+
+```bash
+export FASTAPI_KEY_ENDPOINT="https://api.example.com"
+export FASTAPI_API_KEY="your-api-key"  # Optional
+
+mdcgen /path/to/repo
+```
+
+### Authentication Priority
+
+When multiple methods are configured, keys are obtained in this order:
+1. FastAPI Service
+2. Service Account
+3. OIDC
+4. Environment Variables
+
+For detailed setup instructions and examples, see:
+- [Authentication Overview](cursor_mdc_generator/llm_utils/auth/README.md)
+- [FastAPI Service Example](cursor_mdc_generator/llm_utils/auth/FASTAPI_EXAMPLE.md)
+- [OIDC Setup Guide](cursor_mdc_generator/llm_utils/auth/OIDC_EXAMPLE.md)
+- [Service Account Guide](cursor_mdc_generator/llm_utils/auth/SERVICE_ACCOUNT_EXAMPLE.md)
+
 ## Requirements
 
 - Python 3.7+
-- OpenAI/Anthropic/Google Key (set as environment variable vis-a-vis LiteLLM format)
+- LLM API Keys (see [Authentication](#authentication) for multiple options)
 
 ## Command Reference
 

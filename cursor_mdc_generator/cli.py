@@ -7,6 +7,7 @@ import os
 import asyncio
 import logging
 from .repo_analyzer import analyze_repository
+from .llm_utils.auth import get_key_manager
 
 
 @click.command()
@@ -94,13 +95,16 @@ def cli(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    if (
-        not os.environ.get("OPENAI_API_KEY")
-        and not os.environ.get("ANTHROPIC_API_KEY")
-        and not os.environ.get("GEMINI_API_KEY")
-    ):
+    # Check if any API keys are available through the key manager
+    key_manager = get_key_manager()
+    if not key_manager.has_any_key():
         click.echo(
-            "Error: LLM key environment variable not set. Required for code summarization. Ideally use OpenAI, Anthropic or Gemini (via LiteLLM)"
+            "Error: No LLM API keys found. Required for code summarization.\n"
+            "You can provide keys using:\n"
+            "  1. Environment variables: OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or DEEPSEEK_API_KEY\n"
+            "  2. OIDC authentication: Set OIDC_TOKEN_ENDPOINT, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, and OIDC_KEY_ENDPOINT\n"
+            "  3. Service Account: Set SERVICE_ACCOUNT_FILE and SERVICE_ACCOUNT_KEY_ENDPOINT\n"
+            "  4. FastAPI service: Set FASTAPI_KEY_ENDPOINT (and optionally FASTAPI_API_KEY)"
         )
         return
 
