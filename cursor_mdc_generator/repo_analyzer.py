@@ -53,8 +53,9 @@ def generate_report(
             f.write("![Repository Dependency Graph](./dependency_graph.png)\n\n")
         elif not HAS_PYGRAPHVIZ:
             f.write("### Dependency Graph Visualization\n\n")
-            f.write("Visualization was skipped because PyGraphviz is not installed.\n")
-            f.write("Install with: `pip install mdcgen[visualization]`\n\n")
+            f.write("Visualization was skipped because pygraphviz is not installed.\n")
+            f.write("The tool is using a fallback layout algorithm instead.\n")
+            f.write("For advanced visualizations, see the optional installation instructions in the README.\n\n")
         else:
             f.write("### Dependency Graph Visualization\n\n")
             f.write("Visualization was skipped as requested.\n\n")
@@ -376,7 +377,8 @@ async def analyze_repository(
                 )
             except Exception as e:
                 logging.warning(
-                    "Visualization failed: %s. Try installing with 'pip install mdcgen[visualization]'"
+                    "Visualization failed: %s. Using fallback layout. "
+                    "For advanced visualizations, see optional pygraphviz installation in README."
                     % e
                 )
         else:
