@@ -14,6 +14,10 @@ Vibe coding is easier when your AI knows the rules.
 - Supports both local and remote repositories
 - Compatible with python, typescript, and javascript (for now)
 
+## How It Works
+
+The MDC generator uses LLMs (Large Language Models) to create contextual documentation. To understand how the LLM knows what structure to use for MDC files, see [LLM_GUIDANCE.md](LLM_GUIDANCE.md) for a detailed explanation of the guidance mechanism.
+
 ## Installation
 
 You can install the package using pip:
