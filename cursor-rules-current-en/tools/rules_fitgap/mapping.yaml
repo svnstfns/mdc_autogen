@@ -1,0 +1,83 @@
+# tools/rules_fitgap/mapping.yaml
+# Detection keys map to one or more rule specs.
+# Each rule spec defines: category slug, preferred slug, description, default tags, default globs.
+
+detections:
+  vue:
+    - category: "01-frontend"
+      slug: "vue-component-architecture"
+      description: "Standards for Vue component architecture (file layout, props, emits, slots, refs, `<script setup>`)"
+      tags: ["vue","components","architecture"]
+      globs: ["**/*.vue"]
+    - category: "05-state"
+      slug: "pinia-state-management"
+      description: "Pinia state management: store organization, typing, persistence"
+      tags: ["vue","pinia","state"]
+      globs: ["**/*.{ts,js}"]
+    - category: "08-build-dev"
+      slug: "vite-config-standards"
+      description: "Vite conventions: aliases, env handling, code splitting"
+      tags: ["vite","build","devex"]
+      globs: ["vite.config.*","**/*.ts"]
+
+  fastapi:
+    - category: "02-backend"
+      slug: "fastapi-routing-structure"
+      description: "Router split, dependency injection, error handling, lifespan"
+      tags: ["fastapi","backend"]
+      globs: ["**/*.py"]
+    - category: "06-db-api"
+      slug: "fastapi-pydantic-validation"
+      description: "Request/response validation with Pydantic v2, error and response models"
+      tags: ["fastapi","pydantic","validation"]
+      globs: ["**/*.py"]
+    - category: "06-db-api"
+      slug: "openapi-spec-versioning"
+      description: "OpenAPI (Swagger) versioning, docs, schema generation"
+      tags: ["openapi","swagger","docs"]
+      globs: ["openapi.*","**/*.py"]
+
+  sqlite:
+    - category: "06-db-api"
+      slug: "sqlalchemy-sqlite-config"
+      description: "SQLAlchemy for SQLite: engine, session, migration path (Alembic)"
+      tags: ["sqlalchemy","sqlite","alembic"]
+      globs: ["**/*.py","alembic.ini","**/alembic/*"]
+
+  python:
+    - category: "09-language"
+      slug: "python-typing-standards"
+      description: "Typing standards (PEP 484/561), TypedDict/Protocol, generics"
+      tags: ["python","typing"]
+      globs: ["**/*.py"]
+    - category: "08-build-dev"
+      slug: "precommit-ruff-black"
+      description: "Pre-commit hooks, Ruff, Black, isort — lint/format pipeline"
+      tags: ["pre-commit","ruff","black","isort"]
+      globs: [".pre-commit-config.yaml","**/*.py"]
+    - category: "07-testing"
+      slug: "pytest-structure-coverage"
+      description: "pytest layout, fixtures, integration tests, coverage thresholds"
+      tags: ["pytest","testing"]
+      globs: ["tests/**/*.py"]
+
+  json:
+    - category: "06-db-api"
+      slug: "json-schema-validation"
+      description: "Validation with JSON Schema, marshaling/unmarshaling, error codes"
+      tags: ["json","schema","validation"]
+      globs: ["**/*.json","**/*.py","**/*.ts"]
+
+  swagger:
+    - category: "06-db-api"
+      slug: "openapi-docs-quality"
+      description: "API documentation quality: tags, examples, error models"
+      tags: ["openapi","swagger","docs"]
+      globs: ["openapi.*"]
+
+  testing-js:
+    - category: "07-testing"
+      slug: "vitest-jest-standards"
+      description: "Vitest/Jest conventions for unit/component tests (Vue)"
+      tags: ["vitest","jest","testing"]
+      globs: ["**/*.test.*","**/*.spec.*"]

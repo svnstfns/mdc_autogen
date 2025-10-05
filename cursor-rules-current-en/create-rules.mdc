@@ -1,0 +1,177 @@
+---
+description: "Guidelines for creating new .mdc Cursor rule files with consistent high quality (incl. category subfolders & numeric ID taxonomy)"
+globs:
+alwaysApply: true
+---
+# Creating High‑Quality Cursor Rule Files (with Categories & IDs)
+
+This document defines the **structure, naming, and quality rules** for Cursor (.mdc) rule files. It adds a **thematic sub‑folder layer** to the rules directory as well as a **numeric taxonomy** that assigns a unique `rule_id` to every rule.
+
+## 1) Location, Categories & Folder Structure
+
+- **Base directory:** All rules live under `.cursor/rules/`.
+- **Intermediate (topic clusters):** Place rules into **thematic subfolders**. Use the following **standard categories** with stable slugs:
+
+```
+.cursor/
+└─ rules/
+   ├─ 01-frontend/           # Frontend Frameworks and Libraries
+   ├─ 02-backend/            # Backend and Full-Stack
+   ├─ 03-mobile/             # Mobile Development
+   ├─ 04-css/                # CSS and Styling
+   ├─ 05-state/              # State Management
+   ├─ 06-db-api/             # Database and API
+   ├─ 07-testing/            # Testing
+   ├─ 08-build-dev/          # Build Tools and Development
+   ├─ 09-language/           # Language-Specific
+   └─ 99-other/              # Other / Misc
+```
+
+> **Notes**
+> - The leading **two‑digit prefixes** (`01`, `02`, …, `99`) enforce a **stable sort order**.
+> - Each category may contain a `README.md` (purpose, examples, sub‑conventions).
+> - If a topic does not fit, use `99-other/` or propose a new category via change request.
+
+## 2) Numeric Taxonomy for Rule IDs
+
+Every rule file gets a **unique numeric `rule_id`** that reflects the category. Reserved **ID ranges**:
+
+- **100–199:** Basic / Foundational (cross‑cutting, base standards)
+- **200–299:** Frontend frameworks & libraries *(= 01-frontend)*
+- **300–399:** Backend & full‑stack *(= 02-backend)*
+- **400–499:** Mobile development *(= 03-mobile)*
+- **500–599:** CSS & styling *(= 04-css)*
+- **600–699:** State management *(= 05-state)*
+- **700–799:** Database & API *(= 06-db-api)*
+- **800–899:** Testing & QA *(= 07-testing)*
+- **900–999:** Build tools & DevEx *(= 08-build-dev)*
+- **1000–1999:** Language‑specific *(= 09-language)*
+- **9000–9999:** Other / Misc *(= 99-other)*
+
+**Assignment rule:** Pick the **next free number inside the category’s range**. Track allocations centrally (e.g., `.cursor/rules/INDEX.md`).
+
+## 3) Filenames & Frontmatter
+
+- **Filename:** `<rule_id>-<slug>.mdc`  
+  Examples: `702-api-validation-zod.mdc`, `512-bem-naming.mdc`
+- **Path:** File must live in the **matching category folder**.
+- **Frontmatter (MDC):**
+```yaml
+---
+description: "Short, precise purpose of the rule"
+globs: ["optional/pattern/**/*"]     # optional Auto-Attach trigger
+alwaysApply: false                   # true = Always Rule
+category: "06-db-api"                # folder slug
+rule_id: 702                         # numeric ID according to range
+tags: ["zod","openapi","rest"]       # free-form; helps search
+dependencies: ["100-base-standards.mdc"]  # optional
+priority: 10                         # optional: conflict resolution
+---
+```
+
+> **Consistency checks (manual/lint):**
+> - `category` must equal the folder slug.
+> - `rule_id` must be inside the category’s ID range.
+> - Filename starts with `rule_id` and a descriptive slug.
+
+## 4) Rule Activation Types
+
+Controlled via frontmatter and UI (type dropdown drives application):
+
+- **Always** → `alwaysApply: true` (usually no `globs`). Always in context.  
+- **Auto Attached** → provide `globs`. Rule is attached when file paths/references match.  
+- **Agent Requested** → the agent may include the rule based on a **clear `description`**.  
+- **Manual** → only loaded when explicitly referenced by name.
+
+## 5) Content Best Practices
+
+- **Focused & actionable:** One rule = one topic. Avoid vagueness.
+- **Compact:** Aim for < 500 lines, ideally 30–120. Split big topics and compose with `dependencies`.
+- **Concrete examples:** Provide Good/Bad code snippets. Prefer small, sharp examples.
+- **Reusable:** Factor common patterns into **base rules** (e.g., `100-base-standards.mdc`); build specialized ones on top.
+- **Verified triggers:** Test `globs` against real paths; set `alwaysApply` only for truly foundational rules.
+
+## 6) Example: API validation with Zod (Category 06-db-api)
+
+**File:** `.cursor/rules/06-db-api/702-api-validation-zod.mdc`
+
+```md
+---
+description: "Enforce consistent API validation and type-safety with Zod"
+globs: ["apps/**/api/**/*.{ts,tsx}","packages/**/api/**/*.{ts,tsx}"]
+alwaysApply: false
+category: "06-db-api"
+rule_id: 702
+tags: ["zod","openapi","validation","typescript"]
+dependencies: ["100-base-standards.mdc"]
+---
+# API Validation with Zod
+
+## Requirements
+- Use **Zod** for all request/response schemas.
+- **Exports:** Export types from Zod schemas with `z.infer`.
+- **OpenAPI:** If present, mirror or generate schemas in the OpenAPI definition.
+
+## Good
+```ts
+import { z } from "zod";
+
+export const CreateUserReq = z.object({
+  email: z.string().email(),
+  name: z.string().min(1),
+});
+export type CreateUserReq = z.infer<typeof CreateUserReq>;
+
+export const CreateUserRes = z.object({
+  id: z.string().uuid(),
+});
+
+// Handler
+export async function createUser(req: unknown): Promise<z.infer<typeof CreateUserRes>> {
+  const data = CreateUserReq.parse(req);
+  // ...
+  return { id: "..." };
+}
+```
+
+## Bad
+```ts
+// No validation, loose any-types
+export async function createUser(req: any) {
+  // ...
+}
+```
+```
+
+## 7) Example: BEM naming (Category 04-css)
+
+**File:** `.cursor/rules/04-css/512-bem-naming.mdc`
+
+```md
+---
+description: "BEM naming conventions for consistent CSS/SCSS"
+globs: ["**/*.{css,scss}"]
+alwaysApply: false
+category: "04-css"
+rule_id: 512
+tags: ["css","scss","bem","naming"]
+---
+# BEM Naming Conventions
+
+- **Block**: `.card` — standalone component
+- **Element**: `.card__title` — part of the block
+- **Modifier**: `.card--featured` — variant/state
+
+## Good
+```css
+.card {}
+.card__title {}
+.card--featured {}
+```
+
+## Bad
+```css
+.cardtitle {}
+.card_title-featured {}
+```
+```
