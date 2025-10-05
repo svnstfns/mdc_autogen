@@ -1,0 +1,79 @@
+{
+  "detections": {
+    "vue": [
+      {
+        "category": "01-frontend",
+        "slug": "vue-component-architecture",
+        "description": "Standards for Vue component architecture (file layout, props, emits, slots, refs, `<script setup>`)",
+        "tags": ["vue", "components", "architecture"],
+        "globs": ["**/*.vue"],
+        "activation": "auto"
+      },
+      {
+        "category": "05-state",
+        "slug": "pinia-state-management",
+        "description": "Pinia state management: store organization, typing, persistence",
+        "tags": ["vue", "pinia", "state"],
+        "globs": ["**/*.{ts,js}"],
+        "activation": "auto"
+      }
+    ],
+    "fastapi": [
+      {
+        "category": "02-backend",
+        "slug": "fastapi-routing-structure",
+        "description": "Router split, dependency injection, error handling, lifespan",
+        "tags": ["fastapi", "backend"],
+        "globs": ["**/*.py"],
+        "activation": "auto"
+      },
+      {
+        "category": "06-db-api",
+        "slug": "fastapi-pydantic-validation",
+        "description": "Request/response validation with Pydantic v2, error and response models",
+        "tags": ["fastapi", "pydantic", "validation"],
+        "globs": ["**/*.py"],
+        "activation": "auto"
+      }
+    ],
+    "python": [
+      {
+        "category": "09-language",
+        "slug": "python-typing-standards",
+        "description": "Typing standards (PEP 484/561), TypedDict/Protocol, generics",
+        "tags": ["python", "typing"],
+        "globs": ["**/*.py"],
+        "activation": "auto"
+      },
+      {
+        "category": "08-build-dev",
+        "slug": "precommit-ruff-black",
+        "description": "Pre-commit hooks, Ruff, Black, isort — lint/format pipeline",
+        "tags": ["pre-commit", "ruff", "black", "isort"],
+        "globs": [".pre-commit-config.yaml", "**/*.py"],
+        "activation": "auto"
+      },
+      {
+        "category": "07-testing",
+        "slug": "pytest-structure-coverage",
+        "description": "pytest layout, fixtures, integration tests, coverage thresholds",
+        "tags": ["pytest", "testing"],
+        "globs": ["tests/**/*.py"],
+        "activation": "auto"
+      }
+    ]
+  },
+  "id_ranges": {
+    "00-foundation": [100, 199],
+    "01-frontend": [200, 299],
+    "02-backend": [300, 399],
+    "03-mobile": [400, 499],
+    "04-css": [500, 599],
+    "05-state": [600, 699],
+    "06-db-api": [700, 799],
+    "07-testing": [800, 899],
+    "08-build-dev": [900, 999],
+    "09-language": [1000, 1099],
+    "99-other": [9000, 9999]
+  }
+}
