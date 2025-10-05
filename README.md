@@ -8,7 +8,9 @@ Vibe coding is easier when your AI knows the rules.
 
 ## Features
 
+- **Two generation modes**: File-based (detailed docs per file) and Thematic (rule-sets by framework)
 - Analyzes repository structure and code dependencies
+- **Thematic rule generation** - detects project technologies and generates targeted rule-sets
 - Generates documentation files (MDC) for Cursor
 - **Intelligent quality assessment** - checks existing MDC files and only updates those with poor quality
 - **Flexible authentication** - supports environment variables, OIDC, service accounts, and FastAPI services
@@ -95,7 +97,29 @@ Windows:
 
 ## Usage
 
-To analyze a repository and generate MDC files:
+### Thematic Rule Generation (Recommended for new projects)
+
+Generate targeted rule-sets based on detected technologies:
+
+```bash
+# Generate thematic rules for current project
+mdcgen-thematic --repo . --output-dir .
+
+# Use a specific model
+mdcgen-thematic --repo . --model gpt-4o
+
+# Skip ID assignment for review first
+mdcgen-thematic --repo . --no-assign-ids
+
+# Use custom mapping
+mdcgen-thematic --repo . --mapping custom-mapping.yaml
+```
+
+See [THEMATIC_RULES.md](THEMATIC_RULES.md) for detailed documentation on thematic rule generation.
+
+### File-Based Documentation
+
+To analyze a repository and generate detailed file-level MDC documentation:
 
 ```bash
 # Analyze current directory

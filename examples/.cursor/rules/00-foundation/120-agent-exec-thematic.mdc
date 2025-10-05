@@ -1,0 +1,213 @@
+---
+description: "Execute thematic rule generation via Cursor Agent with proper environment handling"
+globs: []
+alwaysApply: false
+category: "00-foundation"
+rule_id: 120
+tags: ["agent", "automation", "cursor", "thematic-generation"]
+---
+
+# Agent-Driven Thematic Rule Generation
+
+## Purpose
+
+This rule enables Cursor Agent to execute the thematic rule generation CLI safely and efficiently, using environment variables for API keys instead of extracting them from desktop applications.
+
+## When to Use
+
+Invoke this rule when:
+- Starting a new project that needs Cursor rules
+- Updating existing rules after significant framework changes
+- Adding comprehensive rule coverage for detected technologies
+- Automating rule generation in CI/CD pipelines
+
+## Agent Execution Pattern
+
+### Prerequisites Check
+
+Before executing, verify:
+```bash
+# Check for required environment variables
+if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GEMINI_API_KEY" ]; then
+    echo "Error: No LLM API key found in environment"
+    exit 1
+fi
+
+# Verify Python environment
+python3 --version
+pip list | grep mdcgen
+```
+
+### Basic Execution
+
+```bash
+# Generate thematic rules for current project
+python -m cursor_mdc_generator.cli_thematic \
+    --repo . \
+    --output-dir . \
+    --model gpt-4o
+```
+
+### Advanced Options
+
+```bash
+# Use custom mapping and specification
+python -m cursor_mdc_generator.cli_thematic \
+    --repo /path/to/project \
+    --output-dir /path/to/output \
+    --mapping custom_mapping.yaml \
+    --spec custom_authoring_spec.md \
+    --model gpt-4o-mini \
+    --log-level DEBUG
+```
+
+### Skip ID Assignment (for manual review)
+
+```bash
+# Generate rules without assigning final IDs
+python -m cursor_mdc_generator.cli_thematic \
+    --repo . \
+    --output-dir . \
+    --no-assign-ids
+```
+
+## Environment Variable Handling
+
+### Secure API Key Management
+
+**Good Practice**: Use environment variables
+
+```bash
+# Set before execution (session-scoped)
+export OPENAI_API_KEY="sk-..."
+python -m cursor_mdc_generator.cli_thematic --repo .
+
+# Or inline (command-scoped)
+OPENAI_API_KEY="sk-..." python -m cursor_mdc_generator.cli_thematic --repo .
+```
+
+**Bad Practice**: Hardcoding keys
+
+```bash
+# NEVER DO THIS - keys in scripts
+python -m cursor_mdc_generator.cli_thematic --api-key sk-xxx  # WRONG!
+```
+
+### CI/CD Integration
+
+For automated environments:
+
+```yaml
+# GitHub Actions example
+- name: Generate Cursor Rules
+  env:
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  run: |
+    pip install mdcgen
+    python -m cursor_mdc_generator.cli_thematic --repo . --output-dir .
+```
+
+## Agent Workflow
+
+When executing as a Cursor Agent:
+
+1. **Verify Prerequisites**
+   - Check Python environment
+   - Confirm API key availability
+   - Validate target directory
+
+2. **Execute Generation**
+   - Run CLI with appropriate options
+   - Monitor output for errors
+   - Capture any warnings
+
+3. **Review Output**
+   - Check generated rules in `.cursor/rules/`
+   - Verify INDEX.md was updated
+   - Validate rule IDs are in correct ranges
+
+4. **Report Results**
+   - List generated files
+   - Highlight any errors or warnings
+   - Suggest next steps (review, commit, etc.)
+
+## Expected Output
+
+Successful execution produces:
+
+```
+.cursor/rules/
+├── 00-foundation/
+│   ├── 100-base-standards.mdc
+│   └── 101-project-overview.mdc
+├── 01-frontend/
+│   └── 200-vue-component-architecture.mdc
+├── 02-backend/
+│   └── 301-fastapi-routing-structure.mdc
+├── 07-testing/
+│   └── 801-pytest-structure-coverage.mdc
+└── INDEX.md
+```
+
+## Error Handling
+
+Common issues and solutions:
+
+### Missing API Key
+```
+Error: No LLM API key found in environment variables.
+```
+**Solution**: Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY
+
+### Module Not Found
+```
+ModuleNotFoundError: No module named 'cursor_mdc_generator'
+```
+**Solution**: Install package with `pip install mdcgen`
+
+### ID Range Exhausted
+```
+ValueError: No available IDs in range 200-299 for category 01-frontend
+```
+**Solution**: Review and consolidate existing rules, or use custom ID ranges
+
+## Best Practices
+
+1. **Run in Project Root**: Execute from the repository root to ensure accurate detection
+2. **Review Before Commit**: Always review generated rules before committing
+3. **Incremental Updates**: Use `--no-assign-ids` for review, then regenerate with IDs
+4. **Custom Mapping**: Create project-specific mapping.yaml for specialized needs
+5. **Version Control**: Commit both rules and mapping configuration
+
+## Security Notes
+
+- **Never commit API keys** to version control
+- Use environment variables or secret management systems
+- Rotate keys regularly
+- Limit key permissions to minimum required (e.g., read-only for public APIs)
+- Consider using `.env` files (excluded from git) for local development
+
+## Integration with Existing CLI
+
+This thematic CLI (`cli_thematic.py`) is **separate** from the file-based CLI (`cli.py`):
+
+- **File-based CLI** (`mdcgen`): Generates documentation for individual files
+- **Thematic CLI** (`cli_thematic`): Generates rule-sets based on project detection
+
+Both can coexist and serve different purposes:
+- Use thematic for initial project setup and framework-level rules
+- Use file-based for detailed file-specific documentation
+
+## Related Rules
+
+- `100-base-standards.mdc` - Foundation standards that may be generated
+- Rules in other categories generated by this process
+- See INDEX.md for complete rule listing
+
+## Maintenance
+
+Update this rule when:
+- New CLI options are added
+- Security practices evolve
+- Integration patterns change
+- Agent capabilities expand

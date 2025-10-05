@@ -169,3 +169,93 @@ def format_consolidation_prompt(valid_results, mdc_outputs):
 
 # System prompt for all MDC generation requests
 SYSTEM_PROMPT = "You are an expert code documentation specialist."
+
+
+def format_thematic_rule_prompt(
+    rule_spec: dict,
+    project_context: str,
+    authoring_spec: str,
+) -> str:
+    """
+    Generate the prompt for thematic rule generation.
+
+    Args:
+        rule_spec: Rule specification with category, slug, description, tags, globs
+        project_context: Summary of detected project properties
+        authoring_spec: Content of rule_authoring_spec.md
+
+    Returns:
+        Formatted prompt for LLM
+    """
+    prompt = f"""You are generating a high-quality Cursor MDC rule following strict authoring standards.
+
+## Project Context
+{project_context}
+
+## Rule Specification to Generate
+- **Category**: {rule_spec.get('category', 'unknown')}
+- **Slug**: {rule_spec.get('slug', 'unknown')}
+- **Description**: {rule_spec.get('description', 'No description provided')}
+- **Tags**: {', '.join(rule_spec.get('tags', []))}
+- **Glob Patterns**: {', '.join(rule_spec.get('globs', [])) if rule_spec.get('globs') else 'None (agent/manual activation)'}
+- **Activation Type**: {rule_spec.get('activation', 'auto')}
+
+## Authoring Standards
+{authoring_spec}
+
+## Your Task
+Create a complete MDC rule file that:
+
+1. **Follows the frontmatter structure exactly** as specified in the authoring standards
+2. **Includes specific, actionable requirements** relevant to the project context
+3. **Provides both Good and Bad examples** with actual code snippets
+4. **Uses appropriate activation type**:
+   - always: alwaysApply=true, empty/broad globs (foundation rules only)
+   - auto: alwaysApply=false, specific glob patterns (most common)
+   - agent: alwaysApply=false, empty globs, comprehensive description
+   - manual: alwaysApply=false, empty globs, minimal description
+5. **Maintains focus** on a single concern (30-100 lines typical)
+6. **Avoids generic advice** - be specific to {rule_spec.get('slug', 'this topic')}
+
+The rule should be immediately useful to developers working with {project_context.split(':')[0] if ':' in project_context else 'this project'}.
+
+Generate the complete MDC file content including YAML frontmatter and markdown body.
+"""
+    return prompt
+
+
+def format_project_summary_prompt(project_context: str) -> str:
+    """
+    Generate a prompt for creating a project summary rule.
+
+    Args:
+        project_context: Summary of detected project properties
+
+    Returns:
+        Formatted prompt for LLM
+    """
+    prompt = f"""You are creating a high-level project overview rule for Cursor IDE.
+
+## Detected Project Properties
+{project_context}
+
+## Task
+Create a foundation-level MDC rule (00-foundation category) that provides:
+
+1. **Project Overview**: What this project is and its primary purpose
+2. **Technology Stack**: Summary of detected frameworks, languages, and tools
+3. **Architecture**: High-level organization and key patterns
+4. **Development Workflow**: How to build, test, and run the project
+5. **Key Directories**: Purpose of main directories
+6. **Getting Started**: Quick start guide for new developers
+
+The rule should have:
+- Category: 00-foundation
+- Slug: project-overview
+- alwaysApply: true (this is a foundation rule)
+- Empty globs array
+- Comprehensive tags
+
+Generate the complete MDC file with YAML frontmatter and detailed markdown content.
+"""
+    return prompt
