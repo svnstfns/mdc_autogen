@@ -13,6 +13,11 @@ from .llm_utils.prompts import (
     SYSTEM_PROMPT,
 )
 from .llm_utils.tokenize_utils import get_tokenizer, tokenize
+from .mdc_quality_analyzer import (
+    scan_existing_mdc_files,
+    filter_files_needing_update,
+    save_quality_report,
+)
 
 
 def read_file_content(file_path):
@@ -293,6 +298,9 @@ async def generate_mdc_files(
     skip_directory_mdcs=False,
     skip_repository_mdc=False,
     max_directory_depth=2,
+    check_quality=False,
+    update_poor_quality=False,
+    analysis_output_dir=None,
 ):
     """
     Generate MDC files for all files, directories, and the repository.
@@ -306,6 +314,9 @@ async def generate_mdc_files(
         skip_directory_mdcs: If True, skip generating directory-level MDC files
         skip_repository_mdc: If True, skip generating repository-level MDC file
         max_directory_depth: Maximum directory depth for generating MDC files (0=repo only, 1=top-level dirs, etc.)
+        check_quality: If True, check quality of existing MDC files before generating
+        update_poor_quality: If True, only update MDC files with poor quality (requires check_quality=True)
+        analysis_output_dir: Directory to save quality analysis reports
 
     Returns:
         List of paths to generated MDC files
@@ -314,6 +325,34 @@ async def generate_mdc_files(
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
+    
+    # Quality check and filtering if enabled
+    quality_report = None
+    if check_quality:
+        logging.info("=" * 80)
+        logging.info("Analyzing quality of existing MDC files...")
+        logging.info("=" * 80)
+        
+        expected_files = list(file_data.keys())
+        quality_report = scan_existing_mdc_files(output_dir, expected_files)
+        
+        # Print summary to console
+        print("\n" + quality_report.get_summary())
+        
+        # Save detailed report if output directory specified
+        if analysis_output_dir:
+            save_quality_report(quality_report, analysis_output_dir)
+        
+        # Filter files if update_poor_quality is enabled
+        if update_poor_quality:
+            logging.info("Filtering to only update files with quality issues...")
+            original_count = len(file_data)
+            file_data = filter_files_needing_update(file_data, quality_report, output_dir)
+            logging.info(f"Reduced from {original_count} to {len(file_data)} files")
+            
+            if not file_data:
+                logging.info("All existing MDC files are high quality. No updates needed!")
+                return mdc_files
 
     # Batch preparation for file-specific MDCs
     file_prompts = []

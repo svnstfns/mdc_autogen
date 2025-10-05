@@ -69,8 +69,18 @@ from .repo_analyzer import analyze_repository
     default=2,
     help="Max directory depth (0=repo only, 1=top-level dirs).",
 )
+@click.option(
+    "--check-quality",
+    is_flag=True,
+    help="Check quality of existing MDC files before generating new ones.",
+)
+@click.option(
+    "--update-poor-quality",
+    is_flag=True,
+    help="Only update MDC files with poor quality (implies --check-quality).",
+)
 def cli(
-    path, repo, out, token, model, log_level, imports, no_viz, no_dirs, no_repo, depth
+    path, repo, out, token, model, log_level, imports, no_viz, no_dirs, no_repo, depth, check_quality, update_poor_quality
 ):
     """Generate MDC files for Cursor IDE from repository analysis.
     
@@ -97,6 +107,10 @@ def cli(
     local_path = path
     if repo:
         local_path = None  # If repo URL is provided, don't use local path
+    
+    # If update_poor_quality is set, enable check_quality automatically
+    if update_poor_quality:
+        check_quality = True
 
     # Run the analysis
     asyncio.run(
@@ -111,6 +125,8 @@ def cli(
             skip_directory_mdcs=no_dirs,
             skip_repository_mdc=no_repo,
             max_directory_depth=depth,
+            check_quality=check_quality,
+            update_poor_quality=update_poor_quality,
         )
     )
     click.echo("Analysis complete. Results saved to {}".format(os.path.abspath(out)))
