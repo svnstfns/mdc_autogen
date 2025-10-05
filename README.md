@@ -115,3 +115,84 @@ mdcgen /path/to/repo --imports
 # Using short aliases for common options
 mdcgen /path/to/repo -o ./output -m gpt-4o -d 1
 ```
+
+## How the LLM Creates MDC Files
+
+The tool uses large language models (LLMs) to generate contextual documentation by analyzing your codebase and creating structured MDC files. Here's how it works:
+
+### Structured Output Format
+
+All MDC files follow a structured format defined by the `MDCResponse` model with four key components:
+
+1. **description**: A brief description of what the rule provides context for
+2. **globs**: File patterns the rule applies to (using glob syntax)
+3. **alwaysApply**: Whether the rule should always be applied (typically `false` except for repository-wide rules)
+4. **content**: The markdown content providing useful documentation and context
+
+### Three-Level Documentation Strategy
+
+The tool generates MDC files at three different levels of granularity:
+
+#### 1. File-Level MDC Files
+
+For each file in your codebase, the LLM receives:
+- The file's code broken down into components (functions, classes, etc.)
+- Files that this file imports
+- Files that import this file
+
+The LLM is prompted to create documentation that includes:
+- Overview of the file's purpose and functionality
+- Description of key components (functions, classes, etc.)
+- How the file relates to other files (dependencies)
+- Usage examples where appropriate
+- Best practices when working with this code
+
+#### 2. Directory-Level MDC Files
+
+For each directory, the LLM receives:
+- List of files in the directory
+- External files imported by files in this directory
+- External files that import from this directory
+
+The LLM is prompted to create documentation that includes:
+- Overview of the directory's purpose
+- Summary of key files and their roles
+- How the directory relates to other parts of the codebase
+- Common patterns or conventions used
+- Best practices when working with files in this directory
+
+#### 3. Repository-Level MDC File
+
+For the entire repository, the LLM receives:
+- List of all directories
+- Core modules (files imported by multiple other files)
+- Entry points (files that import others but aren't imported themselves)
+- Circular dependencies (if any detected)
+
+The LLM is prompted to create documentation that includes:
+- Overview of the repository's purpose
+- Summary of key directories and their roles
+- Architectural patterns and organization
+- Core modules and their significance
+- Entry points and how to navigate the codebase
+- Best practices for working with this repository
+
+### Intelligent Model Selection
+
+The tool automatically selects the most appropriate LLM based on context size:
+
+- **< 128K tokens**: Uses the specified model (default: `gpt-4o-mini`)
+- **128K - 200K tokens**: Uses `claude-3-5-sonnet-latest` for larger contexts
+- **200K - 1M tokens**: Uses `gemini-2.0-flash` for very large contexts
+- **> 1M tokens**: Uses a chunking strategy to process extremely large files
+
+This ensures that even large codebases can be processed efficiently without exceeding model context limits.
+
+### System Prompt
+
+All MDC generation requests use a consistent system prompt:
+```
+You are an expert code documentation specialist.
+```
+
+This establishes the LLM's role and expertise for generating high-quality, developer-focused documentation.
