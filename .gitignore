@@ -1,6 +1,7 @@
 # Output
 output/
 .cursor/
+!examples/.cursor/
 mdc_output/
 .ruff_cache/
 
