@@ -279,6 +279,8 @@ async def analyze_repository(
     skip_directory_mdcs=False,
     skip_repository_mdc=False,
     max_directory_depth=2,
+    check_quality=False,
+    update_poor_quality=False,
 ):
     """
     Analyze a repository and generate structure, graph, and summaries.
@@ -298,6 +300,8 @@ async def analyze_repository(
         skip_directory_mdcs: Whether to skip generating directory-level MDC files
         skip_repository_mdc: Whether to skip generating repository-level MDC file
         max_directory_depth: Maximum directory depth for generating MDC files (0=repo only, 1=top-level dirs, etc.)
+        check_quality: Whether to check quality of existing MDC files before generating
+        update_poor_quality: Whether to only update files with poor quality
     """
     # Set default local path if not provided
     if not local_path:
@@ -405,6 +409,9 @@ async def analyze_repository(
             skip_directory_mdcs=skip_directory_mdcs,
             skip_repository_mdc=skip_repository_mdc,
             max_directory_depth=max_directory_depth,
+            check_quality=check_quality,
+            update_poor_quality=update_poor_quality,
+            analysis_output_dir=output_dir,
         )
 
         # Log information about generated MDC files
