@@ -18,6 +18,7 @@ from .mdc_quality_analyzer import (
     filter_files_needing_update,
     save_quality_report,
 )
+from .logging_utils import log_section, log_file_status, log_progress, log_summary
 
 
 def read_file_content(file_path):
@@ -329,9 +330,7 @@ async def generate_mdc_files(
     # Quality check and filtering if enabled
     quality_report = None
     if check_quality:
-        logging.info("=" * 80)
-        logging.info("Analyzing quality of existing MDC files...")
-        logging.info("=" * 80)
+        log_section("MDC Quality Analysis")
         
         expected_files = list(file_data.keys())
         quality_report = scan_existing_mdc_files(output_dir, expected_files)
@@ -345,13 +344,16 @@ async def generate_mdc_files(
         
         # Filter files if update_poor_quality is enabled
         if update_poor_quality:
-            logging.info("Filtering to only update files with quality issues...")
+            logging.info("Filtering files based on quality analysis...")
             original_count = len(file_data)
             file_data = filter_files_needing_update(file_data, quality_report, output_dir)
-            logging.info(f"Reduced from {original_count} to {len(file_data)} files")
             
             if not file_data:
-                logging.info("All existing MDC files are high quality. No updates needed!")
+                log_summary({
+                    "Total files": original_count,
+                    "High quality": original_count,
+                    "Updates needed": 0
+                }, "Quality Check Complete")
                 return mdc_files
 
     # Batch preparation for file-specific MDCs
@@ -478,7 +480,7 @@ async def generate_mdc_files(
 
         # Process large context directories individually
         for directory, dir_mdc_path, user_prompt in large_context_dirs:
-            print("\033[91mProcessing large context directory: {directory}\033[0m")
+            logging.warning(f"Processing large directory: {directory}")
             try:
                 response = await generate_mdc_response(
                     system_prompt=SYSTEM_PROMPT,

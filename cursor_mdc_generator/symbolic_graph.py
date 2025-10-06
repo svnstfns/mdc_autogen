@@ -572,7 +572,7 @@ def analyze_imports_and_usage(file_path, repo_path, G):
                         for name, alias in node.names:
                             # Try to resolve the import to an actual file
                             resolved_path = resolve_import(name, file_path, repo_path)
-                            print("\033[93m{} -> {}\033[0m".format(name, resolved_path))
+                            logging.debug(f"Import: {name} -> {resolved_path}")
                             if resolved_path:
                                 # Make sure the target node exists with type "file"
                                 if resolved_path not in G.nodes():
@@ -713,13 +713,8 @@ def analyze_imports_and_usage(file_path, repo_path, G):
                                         }
                                     )
 
-                            print("_" * 100)
-                            print("\033[92mImport path: {}\033[0m".format(import_path))
-                            print(
-                                "\033[92mImported items: {}\033[0m".format(
-                                    imported_items
-                                )
-                            )
+                            logging.debug(f"Import path: {import_path}")
+                            logging.debug(f"Imported items: {imported_items}")
                             print("_" * 100)
                             # Don't create self-referential edges
                             if file_path != import_path:

@@ -19,6 +19,7 @@ from .rule_planner import ThematicRulePlanner, load_mapping_config, ProjectDetec
 from .rule_id_allocator import RuleIDAllocator
 from .llm_utils.llm_client import generate_mdc_response
 from .llm_utils.prompts import format_thematic_rule_prompt, format_project_summary_prompt, SYSTEM_PROMPT
+from .logging_utils import setup_colored_logging, log_section, log_file_status
 
 
 logger = logging.getLogger(__name__)
@@ -198,7 +199,7 @@ def write_rule_file(
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)
     
-    logger.info(f"Created rule: {file_path}")
+    log_file_status(str(file_path.name), "created", f"Category: {category}")
     return file_path
 
 
@@ -446,11 +447,8 @@ def cli(repo, output_dir, mapping, spec, model, no_assign_ids, log_level):
             --model gpt-4o \\
             --output-dir /path/to/output
     """
-    # Setup logging
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper()),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    # Setup logging with colors
+    setup_colored_logging(log_level)
 
     # Check for LLM API keys
     if (

@@ -20,7 +20,8 @@ dependencies = [
     "astroid",
     "click",
     "litellm",
-    "requests"
+    "requests",
+    "colorama"
 ]
 
 [project.optional-dependencies]

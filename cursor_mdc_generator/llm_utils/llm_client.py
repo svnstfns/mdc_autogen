@@ -139,7 +139,7 @@ async def generate_mdc_response(
     messages_tokens = 0
     for message in messages:
         messages_tokens += len(tokenize(message["content"], tokenizer))
-    print("\033[91m" + f"Messages tokens: {messages_tokens}" + "\033[0m")
+    logging.warning(f"Large token count: {messages_tokens:,} tokens")
 
     # For extremely large content, still use the chunking approach
     if messages_tokens > 1000000:  # >1M tokens

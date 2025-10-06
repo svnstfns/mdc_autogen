@@ -8,6 +8,7 @@ import logging
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime
 from .llm_utils.models import MDCResponse
+from .logging_utils import log_section, log_file_status, log_summary
 
 
 class MDCQualityReport:
@@ -291,7 +292,7 @@ def scan_existing_mdc_files(rules_dir: str, expected_files: List[str]) -> MDCQua
             full_path = os.path.join(rules_dir, filename)
             existing_mdc_files[filename] = full_path
     
-    logging.info(f"Found {len(existing_mdc_files)} existing MDC files")
+    logging.info(f"Analyzing {len(existing_mdc_files)} MDC files")
     
     # Analyze each existing MDC file
     for mdc_file, full_path in existing_mdc_files.items():
@@ -300,11 +301,10 @@ def scan_existing_mdc_files(rules_dir: str, expected_files: List[str]) -> MDCQua
             report.add_file_analysis(mdc_file, score, issues, is_high_quality)
             
             if is_high_quality:
-                logging.info(f"✓ {mdc_file}: High quality (score: {score:.2f}/10)")
+                log_file_status(mdc_file, "high quality", score=score)
             else:
-                logging.warning(f"⚠ {mdc_file}: Quality issues (score: {score:.2f}/10)")
-                for issue in issues:
-                    logging.warning(f"  - {issue}")
+                status = "needs update" if len(issues) <= 2 else "poor quality"
+                log_file_status(mdc_file, status, f"{len(issues)} issues", score=score)
         except Exception as e:
             logging.error(f"Error analyzing {mdc_file}: {e}")
             report.add_file_analysis(mdc_file, 0.0, [f"Analysis error: {str(e)}"], False)
@@ -351,15 +351,19 @@ def filter_files_needing_update(
         # 2. MDC has quality issues (not high quality)
         if mdc_filename in quality_report.missing_files:
             files_to_update[file_path] = snippets
-            logging.info(f"Will create MDC for: {file_path} (missing)")
+            log_file_status(file_path, "missing", "will create")
         elif mdc_filename in quality_report.files_with_issues:
             files_to_update[file_path] = snippets
             score = quality_report.quality_scores.get(mdc_filename, 0.0)
-            logging.info(f"Will update MDC for: {file_path} (score: {score:.2f}/10)")
+            log_file_status(file_path, "updating", score=score)
         else:
-            logging.info(f"Skipping high-quality MDC for: {file_path}")
+            log_file_status(file_path, "skipped", "high quality")
     
-    logging.info(f"Files to update: {len(files_to_update)}/{len(file_data)}")
+    summary = {
+        "Files to update": f"{len(files_to_update)}/{len(file_data)}",
+        "Skipped": f"{len(file_data) - len(files_to_update)}"
+    }
+    log_summary(summary, "Update Filter Results")
     return files_to_update
 
 
