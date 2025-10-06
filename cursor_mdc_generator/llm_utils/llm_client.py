@@ -11,6 +11,10 @@ from .models import MDCResponse
 from .tokenize_utils import get_tokenizer, tokenize
 from .prompts import format_consolidation_prompt
 
+# Suppress verbose logging from LiteLLM before router initialization
+logging.getLogger('litellm').setLevel(logging.WARNING)
+logging.getLogger('LiteLLM').setLevel(logging.WARNING)
+logging.getLogger('LiteLLM Router').setLevel(logging.WARNING)
 
 # Configure litellm Router
 router = Router(
