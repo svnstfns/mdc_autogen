@@ -438,7 +438,7 @@ async def analyze_repository(
         generate_report(
             G_rel, output_dir, repo_url, local_path, structure, visualization_available
         )
-        return os.path.abspath(output_dir)
+        return os.path.abspath(output_dir), os.path.abspath(mdc_output_dir)
 
     except Exception as e:
         logging.error("Error analyzing repository: %s" % e)
@@ -529,7 +529,7 @@ def main():
         return
 
     # Run the analysis
-    output_path = asyncio.run(
+    result = asyncio.run(
         analyze_repository(
             repo_url=args.repo_url,
             local_path=args.local_path,
@@ -544,8 +544,10 @@ def main():
         )
     )
 
-    if output_path:
+    if result:
+        output_path, mdc_path = result
         logging.info("Repository analysis complete! Results saved to %s" % output_path)
+        logging.info("MDC files created in: %s" % mdc_path)
     else:
         logging.error("Repository analysis failed.")
 
