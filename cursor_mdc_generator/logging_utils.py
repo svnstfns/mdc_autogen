@@ -69,6 +69,23 @@ def setup_colored_logging(log_level: str = "INFO") -> None:
     # Set level and add handler
     logger.setLevel(getattr(logging, log_level.upper()))
     logger.addHandler(console_handler)
+    
+    # Suppress verbose logging from external libraries
+    # Set them to WARNING level to reduce noise
+    external_loggers = [
+        'litellm',
+        'LiteLLM',
+        'LiteLLM Router',
+        'httpx',
+        'httpcore',
+        'openai',
+        'anthropic',
+        'google',
+        'urllib3',
+    ]
+    
+    for logger_name in external_loggers:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 
 def log_section(title: str, width: int = 80) -> None:
@@ -209,3 +226,60 @@ def log_compact_list(items: list, prefix: str = "", max_items: int = 10) -> None
     if len(items) > max_items:
         remaining = len(items) - max_items
         logging.info(f"  {Fore.YELLOW}... and {remaining} more{Style.RESET_ALL}")
+
+
+def log_processing_file(folder: str, filename: str, current: int, total: int, status: str = "processing") -> None:
+    """
+    Log file processing status with folder, filename, progress bar, and status.
+    
+    Args:
+        folder: Path to the folder being processed
+        filename: Name of the file being processed
+        current: Current file number
+        total: Total number of files
+        status: Processing status (processing, success, failed, etc.)
+    """
+    # Truncate folder if too long
+    max_folder_len = 40
+    if len(folder) > max_folder_len:
+        display_folder = "..." + folder[-(max_folder_len-3):]
+    else:
+        display_folder = folder
+    
+    # Truncate filename if too long
+    max_file_len = 30
+    if len(filename) > max_file_len:
+        display_filename = filename[:max_file_len-3] + "..."
+    else:
+        display_filename = filename
+    
+    # Calculate progress bar
+    percentage = (current / total * 100) if total > 0 else 0
+    bar_length = 20
+    filled = int(bar_length * current / total) if total > 0 else 0
+    bar = "█" * filled + "░" * (bar_length - filled)
+    
+    # Status color and icon
+    if status.lower() == "success":
+        status_color = Fore.GREEN
+        status_icon = "✓"
+    elif status.lower() == "failed":
+        status_color = Fore.RED
+        status_icon = "❌"
+    elif status.lower() == "skipped":
+        status_color = Fore.YELLOW
+        status_icon = "⊘"
+    else:  # processing
+        status_color = Fore.CYAN
+        status_icon = "⟳"
+    
+    # Build message
+    msg = (
+        f"{Fore.CYAN}Processing:{Style.RESET_ALL} {display_folder}  "
+        f"{Fore.WHITE}File:{Style.RESET_ALL} {display_filename}  "
+        f"{Fore.CYAN}Progress:{Style.RESET_ALL} [{Fore.GREEN}{bar}{Style.RESET_ALL}] "
+        f"{current}/{total} ({percentage:.0f}%)  "
+        f"{Fore.CYAN}Status:{Style.RESET_ALL} {status_color}{status_icon} {status}{Style.RESET_ALL}"
+    )
+    
+    logging.info(msg)

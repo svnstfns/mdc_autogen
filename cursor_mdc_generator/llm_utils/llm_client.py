@@ -11,6 +11,10 @@ from .models import MDCResponse
 from .tokenize_utils import get_tokenizer, tokenize
 from .prompts import format_consolidation_prompt
 
+# Suppress verbose logging from LiteLLM before router initialization
+logging.getLogger('litellm').setLevel(logging.WARNING)
+logging.getLogger('LiteLLM').setLevel(logging.WARNING)
+logging.getLogger('LiteLLM Router').setLevel(logging.WARNING)
 
 # Configure litellm Router
 router = Router(
@@ -50,7 +54,8 @@ def add_to_total_cost(cost: float) -> None:
     global _total_cost
     with _cost_lock:
         _total_cost += cost
-    logging.info(f"Added ${cost:.6f} to total. Current total: ${_total_cost:.6f}")
+    # Only log at DEBUG level to reduce verbosity
+    logging.debug(f"Added ${cost:.6f} to total. Current total: ${_total_cost:.6f}")
 
 
 def text_cost_parser(completion: Any) -> tuple[str, float]:
@@ -139,7 +144,11 @@ async def generate_mdc_response(
     messages_tokens = 0
     for message in messages:
         messages_tokens += len(tokenize(message["content"], tokenizer))
-    logging.warning(f"Large token count: {messages_tokens:,} tokens")
+    # Only log token count at DEBUG level or if very large
+    if messages_tokens > 200000:
+        logging.info(f"Processing large content: {messages_tokens:,} tokens")
+    else:
+        logging.debug(f"Token count: {messages_tokens:,} tokens")
 
     # For extremely large content, still use the chunking approach
     if messages_tokens > 1000000:  # >1M tokens
