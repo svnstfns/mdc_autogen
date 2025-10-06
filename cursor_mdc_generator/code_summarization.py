@@ -18,7 +18,7 @@ from .mdc_quality_analyzer import (
     filter_files_needing_update,
     save_quality_report,
 )
-from .logging_utils import log_section, log_file_status, log_progress, log_summary
+from .logging_utils import log_section, log_file_status, log_progress, log_summary, log_processing_file
 
 
 def read_file_content(file_path):
@@ -285,7 +285,8 @@ def write_mdc_file(output_path, mdc_content):
             # Write the content
             f.write(mdc_content.content)
 
-        logging.info("MDC file created: {}".format(output_path))
+        # Only log at DEBUG level to reduce verbosity
+        logging.debug("MDC file created: {}".format(output_path))
     except Exception as e:
         logging.error("Error writing MDC file {}: {}".format(output_path, e))
 
@@ -386,15 +387,26 @@ async def generate_mdc_files(
         flat_file_path = file_path.replace("/", "_").replace("\\", "_")
         file_output_paths.append(os.path.join(output_dir, f"{flat_file_path}.mdc"))
 
+    # Log start of batch processing
+    log_section("Generating MDC Files", 80)
+    logging.info(f"Processing {len(file_prompts)} files...")
+    
     # Batch generate file MDCs
     file_responses = await batch_generate_mdc_responses(
         prompts=file_prompts, model_name=model_name
     )
 
     # Write MDC files for files
-    for file_path, output_path, response in zip(
+    total_files = len(file_paths)
+    success_count = 0
+    failed_count = 0
+    
+    for idx, (file_path, output_path, response) in enumerate(zip(
         file_paths, file_output_paths, file_responses
-    ):
+    ), 1):
+        folder = os.path.dirname(file_path) if os.path.dirname(file_path) else "."
+        filename = os.path.basename(file_path)
+        
         if response:
             if include_import_rules and file_path in dependency_graph.nodes():
                 imports = [succ for succ in dependency_graph.successors(file_path)]
@@ -412,6 +424,14 @@ async def generate_mdc_files(
 
             write_mdc_file(output_path, response)
             mdc_files.append(output_path)
+            success_count += 1
+            log_processing_file(folder, filename, idx, total_files, "success")
+        else:
+            failed_count += 1
+            log_processing_file(folder, filename, idx, total_files, "failed")
+    
+    # Log completion summary
+    logging.info(f"\nFile processing complete: {success_count} succeeded, {failed_count} failed")
 
     # Generate directory MDCs if not skipped
     if not skip_directory_mdcs and max_directory_depth > 0:
