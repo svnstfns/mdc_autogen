@@ -83,6 +83,7 @@ def get_ignore_patterns(local_path):
         
         # Ignore documentation files
         r".*\.md$",  # Markdown
+        r".*\.mdc$",  # MDC files (Cursor rules)
         r".*\.rst$",  # reStructuredText
         r".*\.adoc$",  # AsciiDoc
         r".*\.asciidoc$",  # AsciiDoc
