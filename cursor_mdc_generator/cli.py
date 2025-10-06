@@ -115,7 +115,7 @@ def cli(
         check_quality = True
 
     # Run the analysis
-    asyncio.run(
+    result = asyncio.run(
         analyze_repository(
             repo_url=repo,
             local_path=local_path,
@@ -131,7 +131,10 @@ def cli(
             update_poor_quality=update_poor_quality,
         )
     )
-    click.echo("Analysis complete. Results saved to {}".format(os.path.abspath(out)))
+    if result:
+        output_path, mdc_path = result
+        click.echo("Analysis complete. Results saved to {}".format(output_path))
+        click.echo("MDC files created in: {}".format(mdc_path))
 
 
 def main():
