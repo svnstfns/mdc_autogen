@@ -298,8 +298,11 @@ async def batch_generate_mdc_responses(
     # Reset cost tracker at the beginning of batch
     initial_cost = get_total_cost()
 
-    # Prepare all messages
+    # Prepare all messages and count tokens
     all_messages = []
+    total_tokens = 0
+    tokenizer = get_tokenizer("gpt-4o")
+    
     for p in prompts:
         system_prompt = p.get(
             "system_prompt", "You are an expert code documentation specialist."
@@ -312,6 +315,10 @@ async def batch_generate_mdc_responses(
             {"role": "user", "content": user_prompt},
         ]
         all_messages.append(messages)
+        
+        # Count tokens for this prompt
+        for message in messages:
+            total_tokens += len(tokenize(message["content"], tokenizer))
 
     # Common model parameters
     model_kwargs = {"temperature": temperature, "response_format": MDCResponse}
@@ -359,16 +366,24 @@ async def batch_generate_mdc_responses(
                     logging.error(f"Error parsing response {i}: {e}")
                     results.append(None)
 
-        # Log batch cost summary
+        # Log and print batch cost summary
         batch_cost = get_total_cost() - initial_cost
+        
+        # Log to logger
         logging.info(f"===== BATCH COST SUMMARY =====")
         logging.info(
             f"Processed {len(prompts)} prompts for a total cost of ${batch_cost:.6f}"
         )
         logging.info(f"Average cost per prompt: ${batch_cost/len(prompts):.6f}")
-        print(
-            f"\033[92mBatch processing complete. Total cost: ${batch_cost:.6f}\033[0m"
-        )
+        logging.info(f"Messages tokens: {total_tokens}")
+        logging.info("Batch processing complete.")
+        
+        # Also print to stdout to ensure visibility
+        print("\n===== BATCH COST SUMMARY =====")
+        print(f"Processed {len(prompts)} prompts for a total cost of ${batch_cost:.6f}")
+        print(f"Average cost per prompt: ${batch_cost/len(prompts):.6f}")
+        print(f"Messages tokens: {total_tokens}")
+        print("Batch processing complete.\n")
 
         return results
 
