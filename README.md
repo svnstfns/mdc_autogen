@@ -61,39 +61,57 @@ The quality report is saved to `mdc_quality_report.md` in your output directory.
 
 ## Installation
 
-You can install the package using pip:
+### Basic Installation (Recommended)
+
+Install mdcgen using your preferred Python package manager:
 
 ```bash
+# Using pip
 pip install mdcgen
+
+# Or using uv (faster alternative)
+uv pip install mdcgen
 ```
 
-Or with uv:
+This installs the core functionality. **Visualization support is optional** - the tool works perfectly without it, using a fallback layout algorithm.
 
-```bash
-uv install mdcgen
-```
+### Optional: Advanced Visualization
 
-## Installation with Visualization Support
+For enhanced dependency graph visualizations with better layouts, you can optionally install pygraphviz. **This requires system dependencies and can be complex to set up.**
 
-You may need to install pygraphviz separately
+If you encounter issues or don't need advanced visualizations, simply use `--no-viz` flag or accept the built-in fallback layout.
 
-macOS:
+<details>
+<summary><b>Click to expand: Optional pygraphviz installation instructions</b></summary>
+
+**Note:** These instructions require installing system-level packages. If this is inconvenient, skip this section and use the tool without advanced visualization.
+
+#### macOS (using Homebrew)
 ```bash
 brew install graphviz
-pip install --global-option=build_ext --global-option="-I/opt/homebrew/include/" --global-option="-L/opt/homebrew/lib/" pygraphviz
-pip install mdcgen[visualization]
+pip install pygraphviz
 ```
 
-Ubuntu / Debian:
+#### Ubuntu / Debian
 ```bash
 sudo apt-get install graphviz graphviz-dev
-pip install mdcgen[visualization]
+pip install pygraphviz
 ```
 
-Windows:
-  - Download and install Graphviz from https://graphviz.org/download/
-  - Add the Graphviz bin directory to your PATH
-  - Run: pip install mdcgen[visualization]
+#### Windows
+1. Download and install Graphviz from https://graphviz.org/download/
+2. Add the Graphviz `bin` directory to your system PATH
+3. Run: `pip install pygraphviz`
+
+#### Alternative: Use uv for Python packages
+```bash
+# After installing system graphviz dependency above
+uv pip install pygraphviz
+```
+
+If pygraphviz installation fails, the tool will automatically fall back to the built-in spring layout algorithm.
+
+</details>
 
 ## Usage
 
