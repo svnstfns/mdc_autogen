@@ -5,10 +5,8 @@ from astroid import nodes
 import logging
 import networkx as nx
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+# Note: Logging is configured by the CLI or caller
+# Don't use basicConfig here to avoid interfering with colored logging
 
 
 def is_standard_library(module_name):
