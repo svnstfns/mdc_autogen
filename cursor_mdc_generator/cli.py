@@ -8,6 +8,7 @@ import asyncio
 import logging
 from .repo_analyzer import analyze_repository
 from .llm_utils.auth import get_key_manager
+from .logging_utils import setup_colored_logging
 
 
 @click.command()
@@ -89,11 +90,8 @@ def cli(
     
     Alternatively, use --repo to analyze a remote repository.
     """
-    # Set up logging
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper()),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    # Set up logging with colors
+    setup_colored_logging(log_level)
 
     # Check if any API keys are available through the key manager
     key_manager = get_key_manager()
